@@ -450,3 +450,17 @@ async def test_budget_exceeded_during_lookups_propagates_after_all_lookups_finis
         await client.aclose()
 
     assert sorted(seen) == wallets
+
+
+def test_supply_share_reads_the_api_fraction_as_percent() -> None:
+    from app.nansen.models import TGMHolder
+
+    buys = buys_of(*((w, 1.0, 1000.0, 100.0) for w in "abc"))
+    clusters = find_clusters(buys, {}, None, CFG)
+    holders = [
+        TGMHolder(address=w, token_amount=1000.0, ownership_percentage=0.0343) for w in "abc"
+    ]
+
+    analysis = measure_bundle(clusters, buys, holders, CFG)
+
+    assert analysis.supply_pct == pytest.approx(10.29)

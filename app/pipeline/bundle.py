@@ -37,6 +37,7 @@ REASON_SAME_SECOND = "same_second"
 REASON_COMMON_FUNDER = "common_funder"
 REASON_DEPLOYER_LINK = "deployer_link"
 
+OWNERSHIP_FRACTION_TO_PCT = 100.0  # tgm/holders returns ownership_percentage as a 0-1 fraction
 RELATED_WALLETS_PER_PAGE = 100
 HOLDERS_BATCH_SIZE = 100
 HOLDERS_PER_PAGE = 1000
@@ -233,7 +234,9 @@ def measure_bundle(
         )
 
     current_holders = [h for h in holders if h.address in bundled]
-    supply_pct = sum(h.ownership_percentage or 0.0 for h in current_holders)
+    supply_pct = sum(h.ownership_percentage or 0.0 for h in current_holders) * (
+        OWNERSHIP_FRACTION_TO_PCT
+    )
     current_tokens = sum(h.token_amount or 0.0 for h in current_holders)
     peak_tokens = sum(buy.tokens for buy in buys if buy.wallet in bundled)
 
