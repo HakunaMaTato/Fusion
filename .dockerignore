@@ -1,0 +1,15 @@
+.git/
+.venv/
+.github/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+tests/
+docs/
+deploy/
+*.md
+!README.md
+.env
+*.db
+__pycache__/
+*.pyc
