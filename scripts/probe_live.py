@@ -28,7 +28,9 @@ SOL = "solana"
 
 
 def short(value: str | None) -> str:
-    return "None" if value is None else (value[:6] + "..." + value[-4:] if len(value) > 14 else value)
+    return (
+        "None" if value is None else (value[:6] + "..." + value[-4:] if len(value) > 14 else value)
+    )
 
 
 def validate(name: str, model: Any, payload: dict[str, Any]) -> None:
@@ -101,7 +103,9 @@ async def main() -> None:
             print("no token with smart money trades found; stopping")
             return
 
-        print("  trader_address_label values:", Counter(r.get("trader_address_label") for r in trades))
+        print(
+            "  trader_address_label values:", Counter(r.get("trader_address_label") for r in trades)
+        )
         print("  actions:", Counter(r.get("action") for r in trades))
         print("  timestamp sample:", trades[0].get("block_timestamp"))
         print("  has slot/block field:", [k for k in trades[0] if "slot" in k or "block" in k])
@@ -119,7 +123,9 @@ async def main() -> None:
         validate("related wallets", ProfilerAddressRelatedWalletsResponse, related)
         rel = related.get("data", [])
         print(f"  {len(rel)} rows; relation values:", Counter(r.get("relation") for r in rel))
-        print("  address_label values:", Counter(r.get("address_label") for r in rel).most_common(5))
+        print(
+            "  address_label values:", Counter(r.get("address_label") for r in rel).most_common(5)
+        )
 
         print("4. tgm/token-information (supply for scale check)")
         info = await call(
@@ -154,8 +160,10 @@ async def main() -> None:
             )
         returned = {row.get("address") for row in held}
         print("  returned addresses exactly match requested:", returned <= set(wallets[:5]))
-        print("  requested addresses returned lowercase/unchanged:",
-              all(a in set(wallets[:5]) for a in returned if a))
+        print(
+            "  requested addresses returned lowercase/unchanged:",
+            all(a in set(wallets[:5]) for a in returned if a),
+        )
 
         print(f"\ncredits used this run: {client.credits_used_today}")
 
