@@ -40,6 +40,8 @@ class DiscoveryConfig(BaseModel):
 class BundleConfig(BaseModel):
     early_window_minutes: int
     max_early_buys: int
+    max_funder_lookups: int
+    funder_relations: list[str]
     same_second_min_wallets: int
     common_funder_min_wallets: int
     similar_size_max_cv: float
