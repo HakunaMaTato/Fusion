@@ -34,6 +34,7 @@ class DiscoveryConfig(BaseModel):
     min_market_cap_usd: float
     screener_timeframe: str
     poll_seconds: int
+    smart_money_poll_seconds: int
 
 
 class BundleConfig(BaseModel):
