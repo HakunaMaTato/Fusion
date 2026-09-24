@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "block_timestamp": "2026-09-24T02:00:04Z",
+      "transaction_hash": "3fA1...trade1",
+      "trader_address": "9zLm...buyer1",
+      "trader_address_label": "Smart Trader",
+      "action": "BUY",
+      "token_address": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+      "token_name": "PUMP",
+      "token_amount": 125000.0,
+      "traded_token_address": "So11111111111111111111111111111111111111112",
+      "traded_token_name": "SOL",
+      "traded_token_amount": 8.4,
+      "estimated_swap_price_usd": 0.00142,
+      "estimated_value_usd": 177.5
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 10,
+    "is_last_page": true
+  }
+}

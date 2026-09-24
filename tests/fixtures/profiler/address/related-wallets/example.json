@@ -1,0 +1,18 @@
+{
+  "pagination": {
+    "page": 1,
+    "per_page": 10,
+    "is_last_page": true
+  },
+  "data": [
+    {
+      "address": "9zLm...buyer1",
+      "address_label": "Fund",
+      "relation": "funded_by",
+      "transaction_hash": "2bC7...fund1",
+      "block_timestamp": "2026-09-24T01:58:00Z",
+      "order": 1,
+      "chain": "solana"
+    }
+  ]
+}

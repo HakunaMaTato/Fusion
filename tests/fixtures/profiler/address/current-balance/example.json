@@ -1,0 +1,19 @@
+{
+  "pagination": {
+    "page": 1,
+    "per_page": 10,
+    "is_last_page": true
+  },
+  "data": [
+    {
+      "chain": "solana",
+      "address": "9zlm...buyer1",
+      "token_address": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+      "token_symbol": "PUMP",
+      "token_name": "Pump Token",
+      "token_amount": 125000.0,
+      "price_usd": 0.00145,
+      "value_usd": 181.25
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "chain": "solana",
+      "block_timestamp": "2026-09-24T05:12:33Z",
+      "transaction_hash": "5x9k...abcd",
+      "trader_address": "8pQr...wallet1",
+      "trader_address_label": "Fund",
+      "token_bought_address": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+      "token_sold_address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "token_bought_symbol": "PUMP",
+      "token_sold_symbol": "USDC",
+      "token_bought_age_days": 0,
+      "token_sold_age_days": 1200,
+      "token_bought_amount": 500000.0,
+      "token_sold_amount": 720.5,
+      "token_bought_market_cap": 1450000.0,
+      "token_sold_market_cap": null,
+      "token_bought_fdv": 1450000.0,
+      "token_sold_fdv": null,
+      "trade_value_usd": 720.5
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 10,
+    "is_last_page": true
+  }
+}

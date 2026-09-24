@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "chain": "solana",
+      "token_address": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+      "token_symbol": "PUMP",
+      "token_age_days": 0.16,
+      "token_age_hours": 3.9,
+      "token_deployment_date": "2026-09-24T02:00:00Z",
+      "market_cap_usd": 1450000.0,
+      "liquidity": 210000.0,
+      "price_usd": 0.00145,
+      "price_change": 82.4,
+      "fdv": 1450000.0,
+      "fdv_mc_ratio": 1.0,
+      "buy_volume": 900000.0,
+      "sell_volume": 300000.0,
+      "volume": 1200000.0,
+      "netflow": 600000.0,
+      "inflow_fdv_ratio": 0.41,
+      "outflow_fdv_ratio": 0.21,
+      "nof_traders": 340,
+      "nof_buyers": 260,
+      "nof_sellers": 90,
+      "nof_buys": 410,
+      "nof_sells": 150
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 10,
+    "is_last_page": true
+  }
+}
