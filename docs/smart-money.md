@@ -28,8 +28,12 @@ This replaces `smart-money/dex-trades` (5 credits, trailing 24h only, one side o
   input leaves the field `None`; nothing is guessed.
 
 ## Known limitations
-- The format of `trader_address_label` is not documented; matching is by substring on the configured keys.
-  Check it on the first live recording.
+- **Verified live (2026-09-24, Solana): `trader_address_label` comes back as an empty string for every
+  trade when `only_smart_money` is true.** Label matching therefore finds nothing today, every buyer
+  lands in `other` at `default_label_weight`, and `weighted_score` equals `wallet_count`. The tier labels
+  (Fund, 180D Smart Trader, ...) are premium data on the holders endpoint (150 credits a call). A cheaper
+  route to test in a later phase is `filters.include_smart_money_labels` on `tgm/dex-trades`, one call per tier.
 - The holding ratio comes from DEX trades only, so tokens moved without a trade are invisible.
 - Market cap at entry uses today's circulating supply, which can differ from the supply at entry.
-- Smart-money wallets are matched by exact address string (same EVM-casing caveat as `docs/bundle.md`).
+- Smart-money wallets are matched by exact address string. Checked live on Solana (holders returned the
+  requested addresses unchanged); EVM casing is still unverified.
