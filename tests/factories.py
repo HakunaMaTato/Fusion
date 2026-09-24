@@ -75,7 +75,8 @@ def tgm_trade(
 
 
 def holder(address: str, tokens: float, ownership_pct: float) -> TGMHolder:
-    return TGMHolder(address=address, token_amount=tokens, ownership_percentage=ownership_pct)
+    """`ownership_pct` is a percentage; the API returns it as a 0-1 fraction."""
+    return TGMHolder(address=address, token_amount=tokens, ownership_percentage=ownership_pct / 100)
 
 
 def related(

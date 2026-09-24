@@ -30,15 +30,15 @@ Typical cost is about 36 credits per token (1 + up to 30 + 5).
 - Clusters that share any wallet are merged (reasons and funders combined).
 
 ## Outputs
-`BundleAnalysis`: clusters, `bundled_wallets`, `supply_pct` (sum of `ownership_percentage`, assumed to be
-0-100), `sold_pct` and `status` (`none`, `holding`, `distributing`, `exited`).
+`BundleAnalysis`: clusters, `bundled_wallets`, `supply_pct` (sum of `ownership_percentage` x 100: the API returns a 0-1 fraction,
+verified live), `sold_pct` and `status` (`none`, `holding`, `distributing`, `exited`).
 `sold_pct = 1 - current tokens / tokens bought in the early window`, clamped to 0-100, then compared with
 `distributing_sold_pct` and `exited_sold_pct`. A cluster wallet missing from the holders response counts
 as holding 0.
 
 ## Known limitations (verify with the first live recording)
-- The `relation` strings are only documented for Ethereum; the Solana values are unverified.
-- `ownership_percentage` is assumed to be a 0-100 percentage, not a fraction.
+- Verified live on Solana: the funder row's `relation` is `First Funder`, and `ownership_percentage` is a 0-1 fraction.
+- Funder `address_label` values are names (for example a .sol name), not categories like CEX, so `ignore_funder_labels` needs real exchange names added over time.
 - Wallets are matched on exact address strings. If Nansen returns EVM addresses in different casing
   between endpoints, a live bundle would read as `exited`. Solana is case-sensitive, so any fix must be
   chain-aware.
