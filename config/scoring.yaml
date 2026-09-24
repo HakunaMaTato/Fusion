@@ -18,6 +18,8 @@ bundle:
   exited_sold_pct: 90
 smart_money:
   min_wallets_for_signal: 2
+  default_label_weight: 1.0
+  flow_window_hours: 24
   label_weights: {Fund: 1.5, "180D Smart Trader": 1.3, "90D Smart Trader": 1.2, "Smart Trader": 1.0, "30D Smart Trader": 0.7}
 scoring:
   veto_bundle_supply_pct: 30
