@@ -244,8 +244,13 @@ async def test_analyze_smart_money_requests_smart_trades_and_supply() -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_smart_money_skips_token_information_without_buys() -> None:
-    client = StubClient({"/api/v1/tgm/dex-trades": [{"data": [], "pagination": PAGINATION}]})
+async def test_analyze_smart_money_reads_holder_count_even_without_buys() -> None:
+    client = StubClient(
+        {
+            "/api/v1/tgm/dex-trades": [{"data": [], "pagination": PAGINATION}],
+            "/api/v1/tgm/token-information": [{"data": {"spot_metrics": {"total_holders": 812}}}],
+        }
+    )
     try:
         result = await analyze_smart_money(
             client, CFG, chain="solana", token_address="tok", deployed_at=DEPLOYED, now=NOW
@@ -254,7 +259,9 @@ async def test_analyze_smart_money_skips_token_information_without_buys() -> Non
         await client.aclose()
 
     assert result.signal is False
-    assert len(client.requests) == 1
+    assert result.total_holders == 812
+    assert result.smart_wallets == frozenset()
+    assert len(client.requests) == 2
 
 
 @pytest.mark.asyncio
@@ -312,7 +319,10 @@ async def test_analyze_smart_money_warns_when_the_page_cap_truncates(
 ) -> None:
     more = {"page": 1, "per_page": 1000, "is_last_page": False}
     client = StubClient(
-        {"/api/v1/tgm/dex-trades": [{"data": [], "pagination": more} for _ in range(5)]}
+        {
+            "/api/v1/tgm/dex-trades": [{"data": [], "pagination": more} for _ in range(5)],
+            "/api/v1/tgm/token-information": [{"data": {}}],
+        }
     )
     try:
         with caplog.at_level(logging.WARNING):
@@ -323,5 +333,11 @@ async def test_analyze_smart_money_warns_when_the_page_cap_truncates(
         await client.aclose()
 
     assert "truncated" in caplog.text
-    assert len(client.requests) == 5
+    assert len(client.requests) == 6
     assert client.requests[0][1]["date"]["from"] == "2026-09-23T04:00:00Z"
+
+
+def test_smart_wallets_are_the_distinct_buyers() -> None:
+    result = metrics([buy("w1", 1), buy("w2", 2), sell("w3", 3), buy("w1", 4)])
+
+    assert result.smart_wallets == frozenset({"w1", "w2"})

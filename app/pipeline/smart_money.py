@@ -39,6 +39,8 @@ class SmartMoneyMetrics(BaseModel):
     first_entry_at: datetime | None
     minutes_after_launch: float | None
     market_cap_at_entry: float | None
+    smart_wallets: frozenset[str] = frozenset()
+    total_holders: int | None = None
 
 
 def match_label(label: str | None, cfg: SmartMoneyConfig) -> str | None:
@@ -68,6 +70,7 @@ def compute_smart_money_metrics(
     deployed_at: datetime | None,
     now: datetime,
     circulating_supply: float | None,
+    total_holders: int | None = None,
 ) -> SmartMoneyMetrics:
     """Metrics from the token's smart-money trades (both sides), oldest to newest."""
     dated = sorted(((parse_timestamp(t.block_timestamp), t) for t in trades), key=lambda p: p[0])
@@ -125,6 +128,8 @@ def compute_smart_money_metrics(
         first_entry_at=first_entry_at,
         minutes_after_launch=minutes_after_launch,
         market_cap_at_entry=market_cap_at_entry,
+        smart_wallets=frozenset(buyers),
+        total_holders=total_holders,
     )
 
 
@@ -159,9 +164,7 @@ async def analyze_smart_money(
             extra={"chain": chain, "token_address": token_address},
         )
 
-    circulating_supply: float | None = None
-    if any(trade.action == "BUY" for trade in trades):
-        circulating_supply = await _circulating_supply(client, chain, token_address)
+    circulating_supply, total_holders = await _token_stats(client, chain, token_address)
 
     return compute_smart_money_metrics(
         trades,
@@ -169,10 +172,14 @@ async def analyze_smart_money(
         deployed_at=deployed_at,
         now=now,
         circulating_supply=circulating_supply,
+        total_holders=total_holders,
     )
 
 
-async def _circulating_supply(client: NansenClient, chain: str, token_address: str) -> float | None:
+async def _token_stats(
+    client: NansenClient, chain: str, token_address: str
+) -> tuple[float | None, int | None]:
+    """Circulating supply and holder count from one token-information call (1 credit)."""
     try:
         info = await tgm_token_information(
             client,
@@ -180,9 +187,13 @@ async def _circulating_supply(client: NansenClient, chain: str, token_address: s
         )
     except NansenAPIError as exc:
         logger.warning(
-            "token information lookup failed, market cap at entry unknown",
+            "token information lookup failed, supply and holder count unknown",
             extra={"chain": chain, "token_address": token_address, "status": exc.status},
         )
-        return None
+        return None, None
     details = info.data.token_details
-    return details.circulating_supply if details is not None else None
+    metrics = info.data.spot_metrics
+    return (
+        details.circulating_supply if details is not None else None,
+        metrics.total_holders if metrics is not None else None,
+    )

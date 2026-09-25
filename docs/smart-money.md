@@ -29,10 +29,17 @@ This replaces `smart-money/dex-trades` (5 credits, trailing 24h only, one side o
 
 ## Known limitations
 - **Verified live (2026-09-24, Solana): `trader_address_label` comes back as an empty string for every
-  trade when `only_smart_money` is true.** Label matching therefore finds nothing today, every buyer
-  lands in `other` at `default_label_weight`, and `weighted_score` equals `wallet_count`. The tier labels
-  (Fund, 180D Smart Trader, ...) are premium data on the holders endpoint (150 credits a call). A cheaper
-  route to test in a later phase is `filters.include_smart_money_labels` on `tgm/dex-trades`, one call per tier.
+  trade when `only_smart_money` is true**, so label matching finds nothing today, every buyer lands in
+  `other` at `default_label_weight`, and `weighted_score` equals `wallet_count`.
+- **Tier filtering works (live test, one Solana token with 21 smart wallets, 8 credits).** One
+  `tgm/dex-trades` call per tier with `filters.include_smart_money_labels` returned subsets of the
+  unfiltered wallets: 180D 7, 90D 10, Smart Trader 14, 30D 9, Fund 0. All 21 wallets fell into at least
+  one tier and 10 wallets were in several, so tiers overlap and the highest weight should win. The rows'
+  `trader_address_label` still does not name the tier (it showed values like "High Balance"), so tier
+  membership has to come from which filtered call returned the wallet. Cost: 1 credit per tier per token
+  (5 for all tiers). Not wired in yet; pending a decision.
+- The same test showed trader labels of the form "<TOKEN> Token Deployer". If the deployer trades its own
+  token early, that label could feed the dormant `deployer_link` heuristic in `docs/bundle.md`.
 - The holding ratio comes from DEX trades only, so tokens moved without a trade are invisible.
 - Market cap at entry uses today's circulating supply, which can differ from the supply at entry.
 - Smart-money wallets are matched by exact address string. Checked live on Solana (holders returned the

@@ -41,6 +41,8 @@ class Candidate(BaseModel):
     feeds: dict[str, datetime] = Field(default_factory=dict)
     smart_wallet_count: int | None = None
     token_deployment_date: datetime | None = None
+    volume_usd: float | None = None
+    liquidity_usd: float | None = None
 
     @property
     def key(self) -> TokenKey:
@@ -72,6 +74,8 @@ def filter_screener_tokens(
                 market_cap_usd=token.market_cap_usd,
                 feeds={FEED_SCREENER: now},
                 token_deployment_date=parse_optional_timestamp(token.token_deployment_date),
+                volume_usd=token.volume,
+                liquidity_usd=token.liquidity,
             )
         )
     return candidates
@@ -124,6 +128,8 @@ def confirm_smart_money_tokens(
                 feeds={FEED_SMART_MONEY: now},
                 smart_wallet_count=len(wallets),
                 token_deployment_date=parse_optional_timestamp(token.token_deployment_date),
+                volume_usd=token.volume,
+                liquidity_usd=token.liquidity,
             )
         )
     return candidates
