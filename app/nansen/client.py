@@ -3,6 +3,7 @@ import hashlib
 import json
 import time
 from collections import deque
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -69,8 +70,10 @@ class NansenClient:
         max_per_minute: int = 250,
         max_attempts: int = 5,
         timeout_seconds: float = 15.0,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._settings = settings
+        self._clock = clock or (lambda: datetime.now(UTC))
         self._fixtures_dir = fixtures_dir
         self._max_attempts = max_attempts
         self._http = httpx.AsyncClient(
@@ -80,7 +83,7 @@ class NansenClient:
         self._rate_limiter = _RateLimiter(max_per_second, max_per_minute)
         self._cache = TTLCache()
         self._credits_used_today = 0
-        self._credits_reset_date: date = datetime.now(UTC).date()
+        self._credits_reset_date: date = self._clock().date()
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -96,8 +99,13 @@ class NansenClient:
         self._roll_credits_if_new_day()
         return self._credits_used_today
 
+    def restore_credits_used_today(self, value: int) -> None:
+        """Seed today's total from storage after a restart."""
+        self._roll_credits_if_new_day()
+        self._credits_used_today = max(self._credits_used_today, value)
+
     def _roll_credits_if_new_day(self) -> None:
-        today = datetime.now(UTC).date()
+        today = self._clock().date()
         if today != self._credits_reset_date:
             self._credits_reset_date = today
             self._credits_used_today = 0

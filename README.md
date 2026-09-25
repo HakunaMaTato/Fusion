@@ -18,6 +18,8 @@ phases land.
 make install     # create venv, install deps
 make check       # ruff + mypy + pytest (replay mode)
 make run         # web app locally, replay mode
+make worker      # polling worker (writes the SQLite database the web app reads)
+make soak        # ten real minutes of the worker against a scripted Nansen (slow)
 ```
 
-`/healthz` reports service health.
+`/healthz` reports 503 when the worker heartbeat is stale. See `docs/worker.md` for the loop, credit pacing and alerts.

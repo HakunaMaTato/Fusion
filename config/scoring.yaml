@@ -41,3 +41,9 @@ scoring:
 budget:
   max_deep_analyses_per_hour: 20
   related_wallets_cache_hours: 24
+  estimated_analysis_credits: 45
+  estimated_reeval_credits: 15
+monitor:
+  reeval_seconds: 900
+alerts:
+  cooldown_minutes: 60

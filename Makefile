@@ -1,4 +1,4 @@
-.PHONY: install check test run run-live record backtest docker
+.PHONY: install check test run run-live worker soak record backtest docker
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -26,6 +26,12 @@ run:
 
 run-live:
 	NANSEN_MODE=live $(PY) -m uvicorn app.main:app --reload
+
+worker:
+	$(PY) -m app.worker
+
+soak:
+	$(PY) -m pytest tests/soak --soak -q
 
 record:
 	$(PY) scripts/record_fixtures.py
