@@ -4,13 +4,16 @@
 measures; verdicts, vetoes and weights belong to Phase 5. Thresholds come from the `smart_money:`
 section of `config/scoring.yaml`.
 
-## Inputs (about 2 credits per token)
+## Inputs (about 7 credits per token)
 1. `tgm/dex-trades` with `only_smart_money: true` (1 credit per page): both BUYs and SELLs from
    deployment (or the flow window if the deployment time is unknown) to now, ascending. Pages are read
    until the last page, at most 5. Ascending order means a capped read drops the newest trades and biases
    the result toward "still holding", so hitting the cap logs a warning.
-2. `tgm/token-information` (1 credit, skipped when nobody bought): `circulating_supply`, only used for the
-   market cap at first entry. A failed call is logged and leaves that one field empty.
+2. One filtered `tgm/dex-trades` call per tier in `label_weights` (5 credits, skipped when nobody
+   bought): `only_smart_money`, `action: BUY` and `include_smart_money_labels: [tier]`, first page only.
+   The wallets a call returns belong to that tier. A failed tier call is logged and that tier is ignored.
+3. `tgm/token-information` (1 credit, always): `circulating_supply` for the market cap at first entry and
+   `total_holders` for holder velocity in scoring. A failed call leaves those fields empty.
 
 This replaces `smart-money/dex-trades` (5 credits, trailing 24h only, one side of a trade per call).
 
@@ -28,16 +31,13 @@ This replaces `smart-money/dex-trades` (5 credits, trailing 24h only, one side o
   input leaves the field `None`; nothing is guessed.
 
 ## Known limitations
-- **Verified live (2026-09-24, Solana): `trader_address_label` comes back as an empty string for every
-  trade when `only_smart_money` is true**, so label matching finds nothing today, every buyer lands in
-  `other` at `default_label_weight`, and `weighted_score` equals `wallet_count`.
-- **Tier filtering works (live test, one Solana token with 21 smart wallets, 8 credits).** One
-  `tgm/dex-trades` call per tier with `filters.include_smart_money_labels` returned subsets of the
-  unfiltered wallets: 180D 7, 90D 10, Smart Trader 14, 30D 9, Fund 0. All 21 wallets fell into at least
-  one tier and 10 wallets were in several, so tiers overlap and the highest weight should win. The rows'
-  `trader_address_label` still does not name the tier (it showed values like "High Balance"), so tier
-  membership has to come from which filtered call returned the wallet. Cost: 1 credit per tier per token
-  (5 for all tiers). Not wired in yet; pending a decision.
+- **Verified live (2026-09-24, Solana): `trader_address_label` comes back as an empty string for the
+  trades when `only_smart_money` is true and does not name the tier**, so tier membership is taken from
+  the per-tier calls above, not from the rows.
+- **Tier filtering (live test, one Solana token with 21 smart wallets, 8 credits):** each tier call
+  returned a subset of the unfiltered wallets (180D 7, 90D 10, Smart Trader 14, 30D 9, Fund 0). All 21
+  wallets fell into at least one tier and 10 were in several, so tiers overlap and a wallet takes the
+  highest weight among its tiers.
 - The same test showed trader labels of the form "<TOKEN> Token Deployer". If the deployer trades its own
   token early, that label could feed the dormant `deployer_link` heuristic in `docs/bundle.md`.
 - The holding ratio comes from DEX trades only, so tokens moved without a trade are invisible.

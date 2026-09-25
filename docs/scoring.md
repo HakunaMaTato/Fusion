@@ -47,5 +47,5 @@ fails at startup and not with a division error in the worker.
 ## Known limitations
 - The cross-check only sees smart wallets among the earliest buyers (the bundle clusters are built from
   at most `max_early_buys`), so a smart wallet that bought later can never be flagged as in a bundle.
-- `weighted_score` currently equals the smart-wallet count because the smart-money labels are empty (see
-  `docs/smart-money.md`); the formula improves on its own once tier labels are available.
+- `weighted_score` uses the tier weights from `label_weights`; wallets matching no tier count once at
+  `default_label_weight`.

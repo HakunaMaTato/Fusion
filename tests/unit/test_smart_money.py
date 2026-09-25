@@ -1,10 +1,11 @@
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 
-from app.nansen.exceptions import NansenAPIError
+from app.nansen.exceptions import BudgetExceeded, NansenAPIError
 from app.nansen.models import TGMDexTrade
 from app.pipeline.smart_money import (
     OTHER_LABEL,
@@ -209,6 +210,34 @@ def test_unmatched_wallet_uses_default_weight() -> None:
     assert wallet_label_and_weight(["nope", None], cfg) == (OTHER_LABEL, 0.5)
 
 
+# --- tiers ---
+
+
+def test_tier_membership_picks_the_highest_weight() -> None:
+    trades = [buy("w1", 1), buy("w2", 2), buy("w3", 3), buy("w4", 4)]
+    tiers = {
+        "w1": frozenset({"30D Smart Trader", "90D Smart Trader", "180D Smart Trader"}),
+        "w2": frozenset({"Fund", "Smart Trader"}),
+        "w3": frozenset({"30D Smart Trader"}),
+    }
+
+    result = metrics(trades, tiers_by_wallet=tiers)
+
+    assert result.label_counts == {
+        "180D Smart Trader": 1,
+        "Fund": 1,
+        "30D Smart Trader": 1,
+        OTHER_LABEL: 1,
+    }
+    assert result.weighted_score == pytest.approx(1.3 + 1.5 + 0.7 + 1.0)
+
+
+def test_unknown_tier_names_are_ignored() -> None:
+    result = metrics([buy("w1", 1)], tiers_by_wallet={"w1": frozenset({"Mystery Tier"})})
+
+    assert result.label_counts == {OTHER_LABEL: 1}
+
+
 # --- async wiring ---
 
 
@@ -216,16 +245,43 @@ def _rows(*trades: TGMDexTrade) -> list[dict[str, Any]]:
     return [trade.model_dump() for trade in trades]
 
 
+def trades_endpoint(
+    pages: list[list[TGMDexTrade]],
+    tier_wallets: dict[str, list[str]] | None = None,
+    failing_tiers: frozenset[str] = frozenset(),
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    """Serves the unfiltered trade pages in order, and the tier-filtered BUY calls by tier."""
+    remaining = list(pages)
+    tier_wallets = tier_wallets or {}
+
+    def respond(body: dict[str, Any]) -> dict[str, Any]:
+        labels = (body.get("filters") or {}).get("include_smart_money_labels")
+        if labels:
+            tier = labels[0]
+            if tier in failing_tiers:
+                raise NansenAPIError(status=503, message="down")
+            rows = [buy(w, 2) for w in tier_wallets.get(tier, [])]
+            return {"data": _rows(*rows), "pagination": PAGINATION}
+        page = remaining.pop(0)
+        last = not remaining
+        info = {"page": body["pagination"]["page"], "per_page": 1000, "is_last_page": last}
+        return {"data": _rows(*page), "pagination": info}
+
+    return respond
+
+
+INFO = {"data": {"token_details": {"circulating_supply": 500_000.0}}}
+
+
 @pytest.mark.asyncio
-async def test_analyze_smart_money_requests_smart_trades_and_supply() -> None:
+async def test_analyze_smart_money_fetches_trades_tiers_and_supply() -> None:
     client = StubClient(
         {
-            "/api/v1/tgm/dex-trades": [
-                {"data": _rows(buy("w1", 2, label="Fund")), "pagination": PAGINATION}
-            ],
-            "/api/v1/tgm/token-information": [
-                {"data": {"token_details": {"circulating_supply": 500_000.0}}}
-            ],
+            "/api/v1/tgm/dex-trades": trades_endpoint(
+                [[buy("w1", 2), buy("w2", 3)]],
+                tier_wallets={"Fund": ["w1"], "30D Smart Trader": ["w2"]},
+            ),
+            "/api/v1/tgm/token-information": [INFO],
         }
     )
     try:
@@ -235,19 +291,25 @@ async def test_analyze_smart_money_requests_smart_trades_and_supply() -> None:
     finally:
         await client.aclose()
 
-    body = client.requests[0][1]
-    assert body["only_smart_money"] is True
-    assert body["date"] == {"from": "2026-09-24T02:00:00Z", "to": "2026-09-24T04:00:00Z"}
-    assert body["order_by"] == [{"field": "block_timestamp", "direction": "ASC"}]
-    assert client.requests[1][1]["timeframe"] == "1d"
+    first = client.requests[0][1]
+    assert first["only_smart_money"] is True
+    assert first["date"] == {"from": "2026-09-24T02:00:00Z", "to": "2026-09-24T04:00:00Z"}
+    assert first["order_by"] == [{"field": "block_timestamp", "direction": "ASC"}]
+    tier_calls = [b for e, b in client.requests[1:] if e.endswith("dex-trades")]
+    assert [b["filters"]["include_smart_money_labels"] for b in tier_calls] == [
+        [tier] for tier in CFG.label_weights
+    ]
+    assert all(b["filters"]["action"] == "BUY" and b["only_smart_money"] for b in tier_calls)
+    assert result.label_counts == {"Fund": 1, "30D Smart Trader": 1}
+    assert result.weighted_score == pytest.approx(1.5 + 0.7)
     assert result.market_cap_at_entry == pytest.approx(500_000.0)
 
 
 @pytest.mark.asyncio
-async def test_analyze_smart_money_reads_holder_count_even_without_buys() -> None:
+async def test_analyze_smart_money_makes_no_tier_calls_without_buyers() -> None:
     client = StubClient(
         {
-            "/api/v1/tgm/dex-trades": [{"data": [], "pagination": PAGINATION}],
+            "/api/v1/tgm/dex-trades": trades_endpoint([[]]),
             "/api/v1/tgm/token-information": [{"data": {"spot_metrics": {"total_holders": 812}}}],
         }
     )
@@ -265,13 +327,56 @@ async def test_analyze_smart_money_reads_holder_count_even_without_buys() -> Non
 
 
 @pytest.mark.asyncio
+async def test_analyze_smart_money_survives_a_failed_tier_call(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client = StubClient(
+        {
+            "/api/v1/tgm/dex-trades": trades_endpoint(
+                [[buy("w1", 2)]],
+                tier_wallets={"Fund": ["w1"], "180D Smart Trader": ["w1"]},
+                failing_tiers=frozenset({"Fund"}),
+            ),
+            "/api/v1/tgm/token-information": [INFO],
+        }
+    )
+    try:
+        with caplog.at_level(logging.WARNING):
+            result = await analyze_smart_money(
+                client, CFG, chain="solana", token_address="tok", deployed_at=DEPLOYED, now=NOW
+            )
+    finally:
+        await client.aclose()
+
+    assert result.label_counts == {"180D Smart Trader": 1}
+    assert "tier lookup failed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_budget_exceeded_during_tier_lookups_propagates() -> None:
+    def trades(body: dict[str, Any]) -> dict[str, Any]:
+        if (body.get("filters") or {}).get("include_smart_money_labels"):
+            raise BudgetExceeded(used=90, budget=90)
+        return {"data": _rows(buy("w1", 2)), "pagination": PAGINATION}
+
+    client = StubClient({"/api/v1/tgm/dex-trades": trades})
+    try:
+        with pytest.raises(BudgetExceeded):
+            await analyze_smart_money(
+                client, CFG, chain="solana", token_address="tok", deployed_at=DEPLOYED, now=NOW
+            )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_analyze_smart_money_survives_a_failed_token_information_call() -> None:
     def failing(body: dict[str, Any]) -> dict[str, Any]:
         raise NansenAPIError(status=503, message="down")
 
     client = StubClient(
         {
-            "/api/v1/tgm/dex-trades": [{"data": _rows(buy("w1", 2)), "pagination": PAGINATION}],
+            "/api/v1/tgm/dex-trades": trades_endpoint([[buy("w1", 2)]]),
             "/api/v1/tgm/token-information": failing,
         }
     )
@@ -284,18 +389,14 @@ async def test_analyze_smart_money_survives_a_failed_token_information_call() ->
 
     assert result.wallet_count == 1
     assert result.market_cap_at_entry is None
+    assert result.total_holders is None
 
 
 @pytest.mark.asyncio
 async def test_analyze_smart_money_reads_every_page() -> None:
-    more = {"page": 1, "per_page": 1000, "is_last_page": False}
-    last = {"page": 2, "per_page": 1000, "is_last_page": True}
     client = StubClient(
         {
-            "/api/v1/tgm/dex-trades": [
-                {"data": _rows(buy("w1", 2)), "pagination": more},
-                {"data": _rows(sell("w1", 40)), "pagination": last},
-            ],
+            "/api/v1/tgm/dex-trades": trades_endpoint([[buy("w1", 2)], [sell("w1", 40)]]),
             "/api/v1/tgm/token-information": [{"data": {}}],
         }
     )
@@ -306,7 +407,11 @@ async def test_analyze_smart_money_reads_every_page() -> None:
     finally:
         await client.aclose()
 
-    pages = [b["pagination"]["page"] for e, b in client.requests if e.endswith("dex-trades")]
+    pages = [
+        b["pagination"]["page"]
+        for e, b in client.requests
+        if e.endswith("dex-trades") and not b.get("filters")
+    ]
     assert pages == [1, 2]
     assert result.holding_ratio == 0.0
     assert result.net_flow_usd == 0.0
