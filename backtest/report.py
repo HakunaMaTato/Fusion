@@ -1,4 +1,4 @@
-"""Turn backtest results into docs/backtest-results.md and a chart. Statistics only: no raw Nansen data."""
+"""Turn backtest results into docs/backtest-results.md and a chart (statistics only, no raw data)."""
 
 import math
 import statistics
