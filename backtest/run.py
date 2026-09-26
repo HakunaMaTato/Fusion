@@ -3,6 +3,7 @@
     python -m backtest.run estimate --limit 15
     python -m backtest.run discover --max-credits 300
     python -m backtest.run analyze --limit 3 --max-credits 500
+    python -m backtest.run rescore   # free: re-runs stored tokens from the cache
     python -m backtest.run report
 
 Run the paid commands with NANSEN_MODE=live (for example `$env:NANSEN_MODE="live"` in PowerShell).
@@ -114,6 +115,38 @@ async def run_discover(
     await client.aclose()
 
 
+async def run_rescore(
+    settings: Settings, bcfg: BacktestConfig, cfg: ScoringConfig, today: date
+) -> None:
+    """Re-run the analysis of stored results from the cache. Costs nothing: the cap is zero."""
+    known = {c.key: c for c in load_candidates()}
+    client = BacktestClient(settings, max_credits=0)
+    rescored: list[ResultRow] = []
+    kept = 0
+    try:
+        for old in load_results():
+            candidate = known.get((old.chain, old.token_address))
+            outcome = None
+            if candidate is not None:
+                try:
+                    outcome = await process(client, bcfg, cfg, candidate, today)
+                except BudgetExceeded:
+                    outcome = None  # a request is not in the cache; keep the stored row
+            if isinstance(outcome, ResultRow):
+                rescored.append(outcome)
+            else:
+                rescored.append(old)
+                kept += 1
+    finally:
+        await client.aclose()
+    RESULTS_PATH.write_text(
+        "".join(row.model_dump_json() + "\n" for row in rescored), encoding="utf-8"
+    )
+    print(f"Re-scored {len(rescored) - kept} of {len(rescored)} tokens from the cache (0 credits).")
+    if kept:
+        print(f"{kept} kept as stored because something they need is not cached.")
+
+
 async def run_analyze(
     settings: Settings,
     bcfg: BacktestConfig,
@@ -163,6 +196,7 @@ def main(
     analyze = sub.add_parser("analyze", help="analyse candidates (spends credits)")
     analyze.add_argument("--limit", type=int, required=True)
     analyze.add_argument("--max-credits", type=int, required=True)
+    sub.add_parser("rescore", help="re-run stored tokens from the cache; spends nothing")
     sub.add_parser("report", help="write docs/backtest.md from the stored results")
     args = parser.parse_args(argv)
     # Token symbols can hold any character; a legacy Windows console must not crash on them.
@@ -185,6 +219,10 @@ def main(
             f"Analysis of {args.limit} tokens: about {args.limit * typical} credits "
             f"(worst case {args.limit * worst}); {typical} typical, {worst} worst case per token"
         )
+        return 0
+
+    if args.command == "rescore":
+        asyncio.run(run_rescore(settings, bcfg, cfg, today))
         return 0
 
     if args.command == "report":

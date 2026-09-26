@@ -5,6 +5,7 @@ from backtest.analyze import analyze_at, bundle_exit_fraction, net_positions
 from backtest.client import BacktestClient
 from backtest.discover import HistCandidate
 from backtest.fetch import Skipped, fetch_later_trades, fetch_token_data
+from backtest.lifecycle import compute_lifecycle
 from backtest.results import OutcomeRow, ResultRow, SkipRow
 from backtest.timeline import compute_outcomes
 
@@ -78,4 +79,5 @@ async def process(
         bundle_exited_24h=exited,
         lookahead_rows_dropped=data.lookahead_rows_dropped,
         credits_spent=client.run_credits - credits_before,
+        lifecycle=compute_lifecycle(data.candles, data.decision, data_end=data.data_end),
     )

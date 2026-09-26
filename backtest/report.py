@@ -7,6 +7,19 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from backtest.lifecycle import (
+    CLASSES,
+    CLEAN_MAX_BUNDLE_PCT,
+    CLEAN_MIN_SMART_WALLETS,
+    COLLAPSED,
+    DEAD,
+    MIN_GROUP,
+    RETRACE_PCT,
+    Calibration,
+    calibrate,
+    classify,
+    is_clean,
+)
 from backtest.results import OutcomeRow, ResultRow, SkipRow, load_results, load_skips
 
 DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
@@ -134,6 +147,142 @@ def chart_svg(rows: list[ResultRow], hours: int) -> str:
     return "".join(parts)
 
 
+def _share_text(values: list[float]) -> str:
+    if not values:
+        return "none"
+    return (
+        f"median {100 * statistics.median(values):.1f}% "
+        f"(range {100 * min(values):.1f}-{100 * max(values):.1f}%)"
+    )
+
+
+def _bad_rate(rows: list[ResultRow], threshold: float | None) -> str:
+    classes = [classify(r.lifecycle, threshold) for r in rows]
+    known = [c for c in classes if c is not None]
+    if not known:
+        return "n/a"
+    bad = sum(1 for c in known if c in (DEAD, COLLAPSED))
+    lo, hi = wilson(bad, len(known))
+    return (
+        f"{100 * bad / len(known):.0f}% ({bad}/{len(known)}, 95% CI {100 * lo:.0f}-{100 * hi:.0f}%)"
+    )
+
+
+def _class_row(label: str, rows: list[ResultRow], threshold: float | None) -> list[str]:
+    counts = Counter(c for r in rows if (c := classify(r.lifecycle, threshold)) is not None)
+    troughs = [
+        r.lifecycle.trough_pct
+        for r in rows
+        if r.lifecycle is not None and r.lifecycle.trough_pct is not None
+    ]
+    deep = sum(1 for t in troughs if t <= -RETRACE_PCT)
+    return [
+        label,
+        str(sum(counts.values())),
+        *(str(counts[c]) for c in CLASSES),
+        _bad_rate(rows, threshold),
+        f"{deep}/{len(troughs)}" if troughs else "n/a",
+    ]
+
+
+def lifecycle_headline(rows: list[ResultRow], cal: Calibration) -> str:
+    avoid = [r for r in rows if r.verdict == "AVOID"]
+    green = [r for r in rows if r.verdict == "GREEN"]
+    if not any(classify(r.lifecycle, cal.threshold) for r in rows):
+        return "No token has 72 hours of data after its decision yet."
+    text = f"Dead or collapsed by +72h: AVOID {_bad_rate(avoid, cal.threshold)}"
+    return text + f"; GREEN {_bad_rate(green, cal.threshold)}."
+
+
+def lifecycle_lines(rows: list[ResultRow], cal: Calibration) -> list[str]:
+    lines = [
+        "## Lifecycle at +72h",
+        "",
+        "Price alone is a poor test of a volatile new token: many fall by half and come back, and "
+        "some keep trading at a low price. Each token is followed for 72 hours from the decision "
+        "and put in one class:",
+        "",
+        "- **dead**: volume in hours 48-72 is below the threshold below (share of the volume in "
+        "the first 24 hours)",
+        f"- **collapsed**: the price at +72h is at least {RETRACE_PCT:.0f}% below the decision "
+        "price, and volume is still there",
+        f"- **recovered**: the price fell at least {RETRACE_PCT:.0f}% at some point but ended "
+        f"above that level",
+        "- **held**: it never fell that far",
+        "",
+        "### Volume threshold, taken from the data",
+        "",
+        f"Tokens are labelled by price only: *rugged* = at least {cal.rug_pct:.0f}% below the "
+        f"decision price at +72h, *survivor* = within {cal.survive_pct:.0f}% of it or above. "
+        "Volume share = volume in hours 48-72 / volume in the first 24 hours.",
+        "",
+        f"- Rugged ({len(cal.rugged)}): {_share_text(cal.rugged)}",
+        f"- Survivors ({len(cal.survivors)}): {_share_text(cal.survivors)}",
+    ]
+    if cal.threshold is None:
+        lines += [
+            f"- **Not enough tokens to set a threshold** (at least {MIN_GROUP} in each group are "
+            "needed), so no token is called dead yet; only the price-based classes are shown.",
+            "",
+        ]
+    else:
+        loo = (
+            f"{100 * cal.loo_accuracy:.0f}% over {cal.loo_n} tokens"
+            if cal.loo_accuracy is not None
+            else "n/a"
+        )
+        lines += [
+            f"- **Threshold: a volume share below {100 * cal.threshold:.1f}% is called dead.** "
+            f"Balanced accuracy on these tokens: {100 * (cal.accuracy or 0):.0f}%; "
+            f"leave-one-out (each token judged by a threshold that did not use it): {loo}.",
+            "",
+        ]
+    header = ["", "Tokens", *(c.capitalize() for c in CLASSES)]
+    header += ["Dead or collapsed", f"Fell {RETRACE_PCT:.0f}%+ at any time"]
+    by = [(v, [r for r in rows if r.verdict == v]) for v in VERDICTS]
+    lines += [
+        "### By verdict",
+        "",
+        _table(header, [_class_row(v, g, cal.threshold) for v, g in by]),
+        "",
+    ]
+    clean = [r for r in rows if is_clean(r)]
+    other = [r for r in rows if not is_clean(r)]
+    lines += [
+        "### Clean tokens against the rest",
+        "",
+        f"Clean = no veto, bundle holding under {CLEAN_MAX_BUNDLE_PCT:.0f}% of supply, at least "
+        f"{CLEAN_MIN_SMART_WALLETS} smart-money wallets, and no net selling by them.",
+        "",
+        _table(
+            header,
+            [
+                _class_row("Clean", clean, cal.threshold),
+                _class_row("Not clean", other, cal.threshold),
+            ],
+        ),
+        "",
+    ]
+    sens = []
+    for rug in (80.0, 90.0, 95.0):
+        for survive in (0.0, 25.0, 50.0):
+            c = calibrate(rows, rug, survive)
+            sens.append(
+                [
+                    f"{rug:.0f}% / {survive:.0f}%",
+                    f"{len(c.rugged)} / {len(c.survivors)}",
+                    f"{100 * c.threshold:.1f}%" if c.threshold is not None else "n/a",
+                ]
+            )
+    lines += [
+        "### How much the threshold depends on the labels",
+        "",
+        _table(["Rugged / survivor cut-offs", "Tokens (rugged / survivors)", "Threshold"], sens),
+        "",
+    ]
+    return lines
+
+
 def build_report(
     rows: list[ResultRow],
     skips: list[SkipRow],
@@ -144,6 +293,7 @@ def build_report(
     reduced_inputs: str,
 ) -> str:
     by = {v: [r for r in rows if r.verdict == v] for v in VERDICTS}
+    cal = calibrate(rows)
     lines = [
         "# Backtest results",
         "",
@@ -152,10 +302,13 @@ def build_report(
         "",
         "## Headline",
         "",
+        lifecycle_headline(rows, cal),
+        "",
         headline(rows, 24, threshold),
         "",
         "![Dump rate by verdict](backtest.svg)",
         "",
+        *lifecycle_lines(rows, cal),
         "## Outcomes by verdict",
         "",
         f'"Dumped" means the price fell more than {threshold:.0f}% below the price at the decision '

@@ -23,7 +23,18 @@ horizon (+6h, +24h, +72h; configurable in `config/scoring.yaml` under `backtest:
    metrics, scoring), fed only data up to the decision time.
 4. **Outcome.** Max drawdown from the decision price and price change at each horizon, from the
    candles after the decision; and how much of the bundle's position was sold within 24h.
-5. **Report.** Dump rate per verdict with 95% Wilson intervals, veto effects, coverage.
+5. **Lifecycle at +72h.** A fall of more than half is common for new tokens and does not mean the
+   project is finished, so each token is also put in one class: *dead* (trading volume gone),
+   *collapsed* (price at least 50% below the decision price, still trading), *recovered* (fell
+   50% or more at some point but ended above that), or *held*. "Dead" uses no hand-picked
+   volume cut-off: tokens are labelled by price alone (rugged = 90% or more below the decision
+   price at +72h; survivors = within 25% of it or above), and the share of first-day volume still
+   traded in hours 48-72 that best separates the two groups becomes the threshold. It is set only
+   when each group has at least 3 tokens, is checked leave-one-out, and the report shows how it
+   moves with the label cut-offs. Results are also split into *clean* tokens (no veto, bundle under
+   5% of supply, at least 2 smart-money wallets, none net selling) and the rest.
+6. **Report.** Both views, dump rate and lifecycle classes, per verdict with 95% Wilson intervals,
+   veto effects, coverage.
 
 ## No look-ahead
 
@@ -65,6 +76,7 @@ NANSEN_MODE=live python -m backtest.run discover --max-credits 300
 NANSEN_MODE=live python -m backtest.run analyze --limit 3 --max-credits 500     # smoke
 NANSEN_MODE=live python -m backtest.run analyze --limit 25 --max-credits 2500   # pilot
 NANSEN_MODE=live python -m backtest.run analyze --limit 100 --max-credits 12000 # full
+python -m backtest.run rescore   # free: re-runs stored tokens from the cache (cap 0)
 python -m backtest.run report
 ```
 

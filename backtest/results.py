@@ -18,6 +18,17 @@ class OutcomeRow(BaseModel):
     dumped: bool | None
 
 
+class LifecycleRow(BaseModel):
+    """The +72h picture: how deep it dipped, where it ended, and how much volume was left."""
+
+    complete: bool
+    trough_pct: float | None
+    trough_hours: float | None
+    change_pct: float | None
+    volume_first_usd: float | None  # hours 0-24 after the decision
+    volume_late_usd: float | None  # hours 48-72 after the decision
+
+
 class ResultRow(BaseModel):
     chain: str
     token_address: str
@@ -40,6 +51,7 @@ class ResultRow(BaseModel):
     bundle_exited_24h: bool | None
     lookahead_rows_dropped: int
     credits_spent: int
+    lifecycle: LifecycleRow | None = None
 
 
 class SkipRow(BaseModel):
