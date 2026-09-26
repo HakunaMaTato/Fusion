@@ -42,10 +42,23 @@ SHA-384 `HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+`. To u
 release, update both checksums here and in `tests/unit/test_web.py`.
 
 ## Trying it without credits
-```bash
-python scripts/seed_demo.py sqlite:///demo.db      # four demo tokens with history (one has a hostile name)
-DATABASE_URL=sqlite:///demo.db uvicorn app.main:app --port 8000
+Use the project's virtual environment (created by `make install` or `python -m venv .venv`), not the system
+Python, otherwise `import app` fails.
+
+PowerShell (Windows):
+```powershell
+.\.venv\Scripts\python.exe scripts\seed_demo.py sqlite:///demo.db
+$env:DATABASE_URL = "sqlite:///demo.db"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000
+# afterwards: Remove-Item Env:DATABASE_URL
 ```
-The seeded heartbeat is only fresh for five minutes; re-run the script for a healthy status line. Existing
+
+bash (Linux, macOS, Git Bash):
+```bash
+.venv/bin/python scripts/seed_demo.py sqlite:///demo.db
+DATABASE_URL=sqlite:///demo.db .venv/bin/python -m uvicorn app.main:app --port 8000
+```
+
+Then open http://127.0.0.1:8000. The script fills four demo tokens with history (one has a hostile name). The seeded heartbeat is only fresh for five minutes; re-run the script for a healthy status line. Existing
 databases are not migrated: the heartbeat table gained a `last_discovery_at` column, so a database created by an
 older worker build needs to be recreated.
