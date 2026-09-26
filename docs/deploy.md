@@ -238,10 +238,17 @@ used today, and the worker heartbeat. On the VM:
 cd /opt/lp-radar && docker compose ps
 ```
 
-All three services should be `running`. Worker restarts are automatic (`restart: unless-stopped`):
-`docker kill` on the worker container brings it back and `/healthz` recovers. A worker that hangs
-without exiting is not restarted by Docker; `/healthz` goes to 503 (stale heartbeat), so that is
-what to alert on.
+All three services should be `running`. A crashed worker (an exception, an out-of-memory kill) is
+restarted automatically (`restart: unless-stopped`) and `/healthz` recovers; CI proves this by
+killing the worker's process. To see it yourself:
+
+```bash
+sudo kill -9 $(docker inspect -f '{{.State.Pid}}' lp-radar-worker-1)
+```
+
+`docker kill` and `docker stop` are different: Docker treats them as a deliberate stop and does not
+restart the container until the next `docker compose up -d`. A worker that hangs without exiting is
+not restarted either; `/healthz` goes to 503 (stale heartbeat), so that is what to alert on.
 
 ## 10. Rollback
 

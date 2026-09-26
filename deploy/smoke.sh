@@ -3,7 +3,8 @@
 #   1. web, worker and caddy start and /healthz turns healthy
 #   2. the dashboard needs a login, /healthz does not, a wrong password is refused
 #   3. caddy refuses to start with no users unless ALLOW_NO_AUTH=1 (fails closed)
-#   4. killing the worker container restarts it and /healthz recovers
+#   4. a crashed worker (its process killed from outside, like an out-of-memory kill) restarts and
+#      /healthz recovers. `docker kill` does not count: Docker treats it as a deliberate stop.
 set -euo pipefail
 
 COMPOSE="docker compose -f docker-compose.yml -f deploy/docker-compose.ci.yml"
@@ -80,7 +81,9 @@ $COMPOSE up -d --force-recreate caddy
 echo "== 4. worker restart"
 worker="$($COMPOSE ps -q worker)"
 [ -n "$worker" ] || fail "no worker container"
-docker kill "$worker" >/dev/null
+pid="$(docker inspect -f '{{.State.Pid}}' "$worker")"
+[ "$pid" -gt 1 ] || fail "could not find the worker process"
+sudo kill -9 "$pid"
 for _ in $(seq 1 30); do
 	if [ -n "$($COMPOSE ps --status running -q worker)" ]; then
 		break
