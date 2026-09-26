@@ -1,0 +1,23 @@
+# LP Radar
+
+LP Radar finds freshly launched tokens that are pumping, checks whether their
+early buying was bundled, checks what Nansen Smart Money is doing with them,
+and rates each token as an LP candidate (GREEN / WATCH / AVOID). It's a
+submission for the Nansen Meridian Buildathon.
+
+Read-only: it never holds keys, signs transactions, or trades.
+
+See [SPEC.md](SPEC.md) for the full build plan and [CLAUDE.md](CLAUDE.md) for
+project conventions. This README will grow into the submission writeup
+(problem, architecture, endpoints used, screenshots, how to run it) as the
+phases land.
+
+## Quickstart
+
+```bash
+make install     # create venv, install deps
+make check       # ruff + mypy + pytest (replay mode)
+make run         # web app locally, replay mode
+```
+
+`/healthz` reports service health.
