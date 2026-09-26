@@ -453,6 +453,36 @@ def fresh2_lines(rows: list[ResultRow]) -> list[str]:
     ]
 
 
+def batch_coverage_lines(rows: list[ResultRow]) -> list[str]:
+    """Smart-money coverage per batch: labels found in older windows are sparser."""
+    table = []
+    for batch in ("pilot", "fresh", "fresh2"):
+        group = [r for r in rows if r.batch == batch]
+        if not group:
+            continue
+        days = sorted(r.day for r in group)
+        any_sm = sum(r.sm_wallets >= 1 for r in group)
+        many_sm = sum(r.sm_wallets >= 3 for r in group)
+        table.append(
+            [
+                batch,
+                f"{days[0]} to {days[-1]}",
+                str(len(group)),
+                f"{any_sm} ({100 * any_sm / len(group):.0f}%)",
+                f"{many_sm} ({100 * many_sm / len(group):.0f}%)",
+            ]
+        )
+    return [
+        "### Smart-money coverage by batch",
+        "",
+        "A check on smart money can only be tested where smart wallets are found. If coverage "
+        "drops for older windows, the check loses power there without being refuted.",
+        "",
+        _table(["Batch", "Launch days", "Tokens", "1+ smart wallet", "3+ smart wallets"], table),
+        "",
+    ]
+
+
 def build_report(
     rows: list[ResultRow],
     skips: list[SkipRow],
@@ -534,6 +564,7 @@ def build_report(
         f"- Rows stamped after a decision time that were dropped before analysis: {dropped}",
         f"- Credits spent on the analysed tokens: {sum(r.credits_spent for r in rows)}",
         "",
+        *batch_coverage_lines(rows),
         "## Method and limits",
         "",
         "- Candidates: young, liquid tokens from the historical screener, not filtered on "

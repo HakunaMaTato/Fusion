@@ -1,12 +1,12 @@
 # Backtest results
 
-Generated 2026-09-26 13:30 UTC by `python -m backtest.run report`. 135 tokens analysed, 514 skipped.
+Generated 2026-09-26 16:46 UTC by `python -m backtest.run report`. 180 tokens analysed, 836 skipped.
 
 ## Headline
 
-Dead or collapsed by +72h: AVOID 63% (52/83, 95% CI 52-72%); GREEN 44% (4/9, 95% CI 19-73%).
+Dead or collapsed by +72h: AVOID 68% (84/123, 95% CI 60-76%); GREEN 36% (4/11, 95% CI 15-65%).
 
-AVOID tokens fell more than 50% within 24h in 47% of cases (41/87), against 44% for GREEN (4/9).
+AVOID tokens fell more than 50% within 24h in 52% of cases (66/127), against 45% for GREEN (5/11).
 
 ![Dump rate by verdict](backtest-results.svg)
 
@@ -23,6 +23,21 @@ Fresh tokens analysed: 52; with a complete 72-hour window: 52.
 | H3 verdicts separate | AVOID: 21/32 (66%) | GREEN or WATCH: 9/20 (45%) | 0.162 | not supported |
 | H4 vetoes work | a veto fired: 5/13 (38%) | no veto: 25/39 (64%) | 0.121 | opposite direction |
 
+## Second fresh batch: six pre-registered checks
+
+Written down, with predicted directions, before this batch (`fresh2`, tokens from a window earlier than both previous batches) was fetched; the scoring was left unchanged. H1 to H4 replicate the first fresh batch; H5 and H6 come from looking at the earlier tokens afterwards, so this is their first test on data they did not come from. Two-sided Fisher exact test; with 6 checks the bar is p < 0.0083. The outcome is dead or collapsed by +72h, using the volume threshold calibrated on the pilot tokens only (1.6%).
+
+Tokens analysed: 45; with a complete 72-hour window: 45.
+
+| Check | Predicted worse group | Comparison group | p | Result |
+|---|---|---|---|---|
+| H1 smart money | no smart wallets: 29/38 (76%) | 3+ smart wallets: 0/2 (0%) | 0.071 | not supported |
+| H2 bundle status | bundle holding: 20/22 (91%) | bundle distributing: 10/14 (71%) | 0.181 | not supported |
+| H3 verdicts separate | AVOID: 32/40 (80%) | GREEN or WATCH: 1/5 (20%) | 0.014 | not supported |
+| H4 vetoes work | a veto fired: 9/11 (82%) | no veto: 24/34 (71%) | 0.699 | not supported |
+| H5 pump speed | $1M within 30 min: 23/29 (79%) | slower: 10/16 (62%) | 0.296 | not supported |
+| H6 big bundle | bundle 15%+ of supply: 10/11 (91%) | smaller or none: 23/34 (68%) | 0.240 | not supported |
+
 ## Lifecycle at +72h
 
 Price alone is a poor test of a volatile new token: many fall by half and come back, and some keep trading at a low price. Each token is followed for 72 hours from the decision and put in one class:
@@ -36,17 +51,17 @@ Price alone is a poor test of a volatile new token: many fall by half and come b
 
 Tokens are labelled by price only: *rugged* = at least 90% below the decision price at +72h, *survivor* = within 25% of it or above. Volume share = volume in hours 48-72 / volume in the first 24 hours.
 
-- Rugged (39): median 0.0% (range 0.0-2.5%)
-- Survivors (64): median 15.6% (range 0.0-287.0%)
-- **Threshold: a volume share below 1.6% is called dead.** Balanced accuracy on these tokens: 85%; leave-one-out (each token judged by a threshold that did not use it): 83% over 103 tokens.
+- Rugged (65): median 0.0% (range 0.0-2.5%)
+- Survivors (79): median 15.5% (range 0.0-287.0%)
+- **Threshold: a volume share below 1.8% is called dead.** Balanced accuracy on these tokens: 85%; leave-one-out (each token judged by a threshold that did not use it): 84% over 144 tokens.
 
 ### By verdict
 
 |  | Tokens | Dead | Collapsed | Recovered | Held | Dead or collapsed | Fell 50%+ at any time |
 |---|---|---|---|---|---|---|---|
-| GREEN | 9 | 1 | 3 | 2 | 3 | 44% (4/9, 95% CI 19-73%) | 6/9 |
-| WATCH | 38 | 18 | 5 | 6 | 9 | 61% (23/38, 95% CI 45-74%) | 27/38 |
-| AVOID | 83 | 44 | 8 | 8 | 23 | 63% (52/83, 95% CI 52-72%) | 48/83 |
+| GREEN | 11 | 1 | 3 | 3 | 4 | 36% (4/11, 95% CI 15-65%) | 7/11 |
+| WATCH | 41 | 18 | 6 | 6 | 11 | 59% (24/41, 95% CI 43-72%) | 28/41 |
+| AVOID | 123 | 75 | 9 | 11 | 28 | 68% (84/123, 95% CI 60-76%) | 79/123 |
 
 ### Clean tokens against the rest
 
@@ -54,22 +69,22 @@ Clean = no veto, bundle holding under 5% of supply, at least 2 smart-money walle
 
 |  | Tokens | Dead | Collapsed | Recovered | Held | Dead or collapsed | Fell 50%+ at any time |
 |---|---|---|---|---|---|---|---|
-| Clean | 18 | 3 | 6 | 3 | 6 | 50% (9/18, 95% CI 29-71%) | 12/18 |
-| Not clean | 112 | 60 | 10 | 13 | 29 | 62% (70/112, 95% CI 53-71%) | 69/112 |
+| Clean | 20 | 3 | 6 | 4 | 7 | 45% (9/20, 95% CI 26-66%) | 13/20 |
+| Not clean | 155 | 91 | 12 | 16 | 36 | 66% (103/155, 95% CI 59-73%) | 101/155 |
 
 ### How much the threshold depends on the labels
 
 | Rugged / survivor cut-offs | Tokens (rugged / survivors) | Threshold |
 |---|---|---|
-| 80% / 0% | 48 / 48 | 6.6% |
-| 80% / 25% | 48 / 64 | 6.4% |
-| 80% / 50% | 48 / 69 | 1.8% |
-| 90% / 0% | 39 / 48 | 1.6% |
-| 90% / 25% | 39 / 64 | 1.6% |
-| 90% / 50% | 39 / 69 | 1.6% |
-| 95% / 0% | 32 / 48 | 1.5% |
-| 95% / 25% | 32 / 64 | 1.5% |
-| 95% / 50% | 32 / 69 | 1.5% |
+| 80% / 0% | 75 / 60 | 6.2% |
+| 80% / 25% | 75 / 79 | 6.2% |
+| 80% / 50% | 75 / 86 | 1.8% |
+| 90% / 0% | 65 / 60 | 1.8% |
+| 90% / 25% | 65 / 79 | 1.8% |
+| 90% / 50% | 65 / 86 | 1.8% |
+| 95% / 0% | 57 / 60 | 1.8% |
+| 95% / 25% | 57 / 79 | 1.8% |
+| 95% / 50% | 57 / 86 | 1.8% |
 
 ## Outcomes by verdict
 
@@ -77,17 +92,17 @@ Clean = no veto, bundle holding under 5% of supply, at least 2 smart-money walle
 
 | Verdict | Tokens | Dumped within 6h | Dumped within 24h | Dumped within 72h | Median max drawdown 24h | Median change +24h | Bundle exited within 24h |
 |---|---|---|---|---|---|---|---|
-| GREEN | 9 | 33% (3/9, 95% CI 12-65%) | 44% (4/9, 95% CI 19-73%) | 67% (6/9, 95% CI 35-88%) | -49.3% | -41.4% | n/a |
-| WATCH | 39 | 23% (9/39, 95% CI 13-38%) | 62% (24/39, 95% CI 46-75%) | 71% (27/38, 95% CI 55-83%) | -76.8% | -58.0% | 0/1 |
-| AVOID | 87 | 33% (29/87, 95% CI 24-44%) | 47% (41/87, 95% CI 37-58%) | 58% (48/83, 95% CI 47-68%) | -46.9% | -23.2% | 4/12 |
+| GREEN | 11 | 27% (3/11, 95% CI 10-57%) | 45% (5/11, 95% CI 21-72%) | 64% (7/11, 95% CI 35-85%) | -49.3% | -41.4% | n/a |
+| WATCH | 42 | 24% (10/42, 95% CI 13-39%) | 60% (25/42, 95% CI 44-73%) | 68% (28/41, 95% CI 53-80%) | -76.0% | -47.8% | 0/1 |
+| AVOID | 127 | 41% (52/127, 95% CI 33-50%) | 52% (66/127, 95% CI 43-60%) | 64% (79/123, 95% CI 55-72%) | -66.0% | -26.2% | 12/22 |
 
 ### Median price change after the decision
 
 | Verdict | +6h | +24h | +72h |
 |---|---|---|---|
-| GREEN | +11.9% | -41.4% | -48.4% |
-| WATCH | +26.9% | -58.0% | -62.1% |
-| AVOID | +18.6% | -23.2% | -16.8% |
+| GREEN | +11.9% | -41.4% | -47.3% |
+| WATCH | +16.6% | -47.8% | -61.3% |
+| AVOID | +0.0% | -26.2% | -52.7% |
 
 ## Effect of each veto
 
@@ -95,17 +110,27 @@ Dump rate within 24h for tokens that triggered a veto against those that did not
 
 | Veto | Tokens | With the veto | Without it |
 |---|---|---|---|
-| `bundle_supply` | 10 | 60% (6/10, 95% CI 31-83%) | 50% (63/125, 95% CI 42-59%) |
-| `sm_in_bundle` | 9 | 33% (3/9, 95% CI 12-65%) | 52% (66/126, 95% CI 44-61%) |
-| `sm_net_selling` | 18 | 56% (10/18, 95% CI 34-75%) | 50% (59/117, 95% CI 41-59%) |
+| `bundle_supply` | 18 | 72% (13/18, 95% CI 49-88%) | 51% (83/162, 95% CI 44-59%) |
+| `sm_in_bundle` | 10 | 30% (3/10, 95% CI 11-60%) | 55% (93/170, 95% CI 47-62%) |
+| `sm_net_selling` | 21 | 52% (11/21, 95% CI 32-72%) | 53% (85/159, 95% CI 46-61%) |
 
 ## Coverage
 
-- Tokens analysed: 135
-- Skipped, `never_reached_market_cap`: 463
-- Skipped, `trades_truncated`: 51
+- Tokens analysed: 180
+- Skipped, `never_reached_market_cap`: 756
+- Skipped, `trades_truncated`: 80
 - Rows stamped after a decision time that were dropped before analysis: 0
-- Credits spent on the analysed tokens: 10083
+- Credits spent on the analysed tokens: 13941
+
+### Smart-money coverage by batch
+
+A check on smart money can only be tested where smart wallets are found. If coverage drops for older windows, the check loses power there without being refuted.
+
+| Batch | Launch days | Tokens | 1+ smart wallet | 3+ smart wallets |
+|---|---|---|---|---|
+| pilot | 2026-09-10 to 2026-09-23 | 83 | 30 (36%) | 21 (25%) |
+| fresh | 2026-08-27 to 2026-09-08 | 52 | 25 (48%) | 11 (21%) |
+| fresh2 | 2026-08-13 to 2026-08-26 | 45 | 7 (16%) | 2 (4%) |
 
 ## Method and limits
 

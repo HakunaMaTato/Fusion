@@ -7,7 +7,13 @@ from app.config import Settings, load_scoring_config
 from backtest import run as run_module
 from backtest.client import BacktestClient
 from backtest.discover import HistCandidate
-from backtest.report import build_report, fisher_two_sided, fresh2_lines, fresh_lines
+from backtest.report import (
+    batch_coverage_lines,
+    build_report,
+    fisher_two_sided,
+    fresh2_lines,
+    fresh_lines,
+)
 from backtest.results import ResultRow, load_results
 from tests.unit.test_backtest_lifecycle import build, lifecycle, with_lifecycle
 from tests.unit.test_backtest_tools import row
@@ -317,3 +323,13 @@ def test_the_report_includes_the_second_section() -> None:
     )  # fmt: skip
 
     assert "Second fresh batch: six pre-registered checks" in text
+
+
+def test_smart_money_coverage_is_reported_per_batch() -> None:
+    rows = pilot_rows() + [fresh2(bad=True, sm_wallets=0) for _ in range(9)]
+    rows += [fresh2(bad=False, sm_wallets=3)]
+
+    text = "\n".join(batch_coverage_lines(rows))
+
+    assert "| fresh2 |" in text and "| 1 (10%) | 1 (10%) |" in text
+    assert "| pilot |" in text and "| fresh |" not in text  # empty batches are left out
