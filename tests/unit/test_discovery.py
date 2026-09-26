@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from app.pipeline.discovery import (
+    CONFIRM_BATCH_SIZE,
     FEED_SCREENER,
     FEED_SMART_MONEY,
     Candidate,
@@ -226,3 +227,55 @@ async def test_fetch_feed_b_skips_screener_when_no_token_has_enough_wallets() ->
 
     assert kept == []
     assert len(client.requests) == 1
+
+
+def _row_on(chain: str, address: str) -> dict[str, Any]:
+    return smart_trade("w1", address, chain=chain).model_dump()
+
+
+@pytest.mark.asyncio
+async def test_fetch_feed_b_confirms_each_chain_in_its_own_request() -> None:
+    """Nansen's edge blocked one request mixing many addresses from several chains (403)."""
+    trades = []
+    for chain in ("solana", "bsc", "robinhood"):
+        for wallet in ("w1", "w2"):
+            trades.append(smart_trade(wallet, f"{chain}-tok", chain=chain).model_dump())
+    client = StubClient(
+        {
+            "/api/v1/smart-money/dex-trades": [{"data": trades, "pagination": PAGINATION}],
+            "/api/v1/token-screener": [{"data": [], "pagination": PAGINATION}] * 3,
+        }
+    )
+    try:
+        await fetch_feed_b(client, CFG, ["solana", "bnb", "robinhood"], min_wallets=2, now=NOW)
+    finally:
+        await client.aclose()
+
+    calls = [r[1] for r in client.requests if r[0] == "/api/v1/token-screener"]
+    assert sorted((c["chains"], c["filters"]["token_address"]) for c in calls) == [
+        (["bsc"], ["bsc-tok"]),
+        (["robinhood"], ["robinhood-tok"]),
+        (["solana"], ["solana-tok"]),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_feed_b_splits_a_chain_into_batches() -> None:
+    count = CONFIRM_BATCH_SIZE + 5
+    trades = [
+        smart_trade(w, f"tok{i:03d}").model_dump() for i in range(count) for w in ("w1", "w2")
+    ]
+    client = StubClient(
+        {
+            "/api/v1/smart-money/dex-trades": [{"data": trades, "pagination": PAGINATION}],
+            "/api/v1/token-screener": [{"data": [], "pagination": PAGINATION}] * 2,
+        }
+    )
+    try:
+        await fetch_feed_b(client, CFG, ["solana"], min_wallets=2, now=NOW)
+    finally:
+        await client.aclose()
+
+    sizes = [len(r[1]["filters"]["token_address"]) for r in client.requests[1:]]
+    assert sizes == [CONFIRM_BATCH_SIZE, 5]
+    assert CONFIRM_BATCH_SIZE <= 50

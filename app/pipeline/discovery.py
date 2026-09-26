@@ -27,7 +27,7 @@ FEED_SMART_MONEY = "smart_money"
 
 SCREENER_PER_PAGE = 100
 TRADES_PER_PAGE = 1000
-CONFIRM_BATCH_SIZE = 100
+CONFIRM_BATCH_SIZE = 50
 
 TokenKey = tuple[str, str]
 
@@ -194,15 +194,22 @@ async def fetch_feed_b(
     if not smart_wallets:
         return []
 
-    addresses = sorted({address for _, address in smart_wallets})
+    # One request per chain and at most CONFIRM_BATCH_SIZE addresses: Nansen's edge (Cloudflare)
+    # answered a single request holding 100+ addresses from several chains with a 403 block page,
+    # while the same addresses sent one chain at a time were fine (seen live, 2026-09-26).
+    by_chain: dict[str, set[str]] = defaultdict(set)
+    for chain, address in smart_wallets:
+        by_chain[chain].add(address)
     screener_tokens: list[TokenScreenerToken] = []
-    for start in range(0, len(addresses), CONFIRM_BATCH_SIZE):
-        batch = addresses[start : start + CONFIRM_BATCH_SIZE]
-        confirm_request = TokenScreenerRequest(
-            chains=chains,
-            timeframe=cfg.screener_timeframe,
-            pagination=PaginationRequest(page=1, per_page=TRADES_PER_PAGE),
-            filters=TokenScreenerFilters(token_address=batch),
-        )
-        screener_tokens.extend((await token_screener(client, confirm_request)).data)
+    for chain in sorted(by_chain):
+        addresses = sorted(by_chain[chain])
+        for start in range(0, len(addresses), CONFIRM_BATCH_SIZE):
+            batch = addresses[start : start + CONFIRM_BATCH_SIZE]
+            confirm_request = TokenScreenerRequest(
+                chains=[chain],
+                timeframe=cfg.screener_timeframe,
+                pagination=PaginationRequest(page=1, per_page=TRADES_PER_PAGE),
+                filters=TokenScreenerFilters(token_address=batch),
+            )
+            screener_tokens.extend((await token_screener(client, confirm_request)).data)
     return confirm_smart_money_tokens(smart_wallets, screener_tokens, cfg, now)
