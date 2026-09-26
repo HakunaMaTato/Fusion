@@ -52,6 +52,7 @@ class ResultRow(BaseModel):
     lookahead_rows_dropped: int
     credits_spent: int
     lifecycle: LifecycleRow | None = None
+    batch: str = "pilot"  # "fresh" rows were analysed after the checks were written down
 
 
 class SkipRow(BaseModel):

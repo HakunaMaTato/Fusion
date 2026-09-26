@@ -16,7 +16,7 @@ import json
 import sys
 from collections import Counter
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 
@@ -95,22 +95,28 @@ async def run_discover(
     chains: list[str],
     max_credits: int,
     today: date,
+    shift_days: int = 0,
 ) -> None:
     client = BacktestClient(settings, max_credits=max_credits)
     try:
-        candidates = await discover(client, bcfg, chains, today)
+        found = await discover(client, bcfg, chains, today - timedelta(days=shift_days))
     except BudgetExceeded:
         print("Stopped: the credit cap was reached before discovery finished.")
         print_summary(client)
         await client.aclose()
         return
+    # Merge with earlier discoveries: a token already listed keeps its stored entry.
+    merged = {c.key: c for c in found}
+    merged.update({c.key: c for c in load_candidates()})
+    candidates = list(merged.values())
     CANDIDATES_PATH.parent.mkdir(parents=True, exist_ok=True)
     CANDIDATES_PATH.write_text(
         json.dumps([c.model_dump(mode="json") for c in candidates], indent=1), encoding="utf-8"
     )
     # Nansen names some chains differently from the request (asked for "bnb", returns "bsc").
     per_chain = dict(Counter(c.chain for c in candidates))
-    print(f"Found {len(candidates)} candidate tokens: {per_chain}")
+    print(f"Found {len(found)} tokens in this window; {len(candidates)} in total.")
+    print(f"By chain: {per_chain}")
     print_summary(client)
     await client.aclose()
 
@@ -133,7 +139,7 @@ async def run_rescore(
                 except BudgetExceeded:
                     outcome = None  # a request is not in the cache; keep the stored row
             if isinstance(outcome, ResultRow):
-                rescored.append(outcome)
+                rescored.append(outcome.model_copy(update={"batch": old.batch}))
             else:
                 rescored.append(old)
                 kept += 1
@@ -154,6 +160,7 @@ async def run_analyze(
     limit: int,
     max_credits: int,
     today: date,
+    batch: str = "pilot",
 ) -> None:
     done = {(r.chain, r.token_address) for r in load_results()} | {
         (s.chain, s.token_address) for s in load_skips()
@@ -170,7 +177,10 @@ async def run_analyze(
             except (NansenError, httpx.TransportError) as exc:
                 print(f"Skipping {candidate.chain}/{candidate.token_address}: {type(exc).__name__}")
                 continue
-            append_jsonl(RESULTS_PATH if isinstance(outcome, ResultRow) else SKIPS_PATH, outcome)
+            if isinstance(outcome, ResultRow):
+                append_jsonl(RESULTS_PATH, outcome.model_copy(update={"batch": batch}))
+            else:
+                append_jsonl(SKIPS_PATH, outcome)
             label = (
                 f"{outcome.verdict} score {outcome.score:.0f}"
                 if isinstance(outcome, ResultRow)
@@ -193,9 +203,15 @@ def main(
     estimate.add_argument("--limit", type=int, default=15)
     disc = sub.add_parser("discover", help="find candidate tokens (spends credits)")
     disc.add_argument("--max-credits", type=int, required=True)
+    disc.add_argument(
+        "--shift-days", type=int, default=0, help="move the 14-day window this many days earlier"
+    )
     analyze = sub.add_parser("analyze", help="analyse candidates (spends credits)")
     analyze.add_argument("--limit", type=int, required=True)
     analyze.add_argument("--max-credits", type=int, required=True)
+    analyze.add_argument(
+        "--batch", default="pilot", help='label stored with each result, e.g. "fresh"'
+    )
     sub.add_parser("rescore", help="re-run stored tokens from the cache; spends nothing")
     sub.add_parser("report", help="write docs/backtest.md from the stored results")
     args = parser.parse_args(argv)
@@ -245,7 +261,7 @@ def main(
         ):
             print("Aborted.")
             return 1
-        asyncio.run(run_discover(settings, bcfg, chains, args.max_credits, today))
+        asyncio.run(run_discover(settings, bcfg, chains, args.max_credits, today, args.shift_days))
         return 0
 
     text = (
@@ -255,7 +271,7 @@ def main(
     if not confirm(text, input_fn):
         print("Aborted.")
         return 1
-    asyncio.run(run_analyze(settings, bcfg, cfg, args.limit, args.max_credits, today))
+    asyncio.run(run_analyze(settings, bcfg, cfg, args.limit, args.max_credits, today, args.batch))
     return 0
 
 

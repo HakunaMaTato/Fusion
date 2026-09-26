@@ -283,6 +283,111 @@ def lifecycle_lines(rows: list[ResultRow], cal: Calibration) -> list[str]:
     return lines
 
 
+def fisher_two_sided(a: int, b: int, c: int, d: int) -> float:
+    """Two-sided Fisher exact p-value for the 2x2 table [[a, b], [c, d]]."""
+    row1, col1, total = a + b, a + c, a + b + c + d
+
+    def prob(x: int) -> float:
+        return math.comb(col1, x) * math.comb(total - col1, row1 - x) / math.comb(total, row1)
+
+    observed = prob(a)
+    low, high = max(0, row1 - (total - col1)), min(row1, col1)
+    return min(1.0, sum(p for x in range(low, high + 1) if (p := prob(x)) <= observed * (1 + 1e-9)))
+
+
+def _bad_count(rows: list[ResultRow], threshold: float | None) -> tuple[int, int]:
+    known = [c for r in rows if (c := classify(r.lifecycle, threshold)) is not None]
+    return sum(1 for c in known if c in (DEAD, COLLAPSED)), len(known)
+
+
+CHECKS = 4
+ALPHA = 0.05 / CHECKS  # Bonferroni: four checks were written down
+
+
+def _check_row(
+    name: str,
+    a_label: str,
+    a: list[ResultRow],
+    b_label: str,
+    b: list[ResultRow],
+    threshold: float | None,
+) -> list[str]:
+    """Predicted: group A has the higher dead-or-collapsed rate than group B."""
+    (bad_a, n_a), (bad_b, n_b) = _bad_count(a, threshold), _bad_count(b, threshold)
+    if n_a == 0 or n_b == 0:
+        return [name, f"{a_label}: n/a", f"{b_label}: n/a", "n/a", "not testable"]
+    p = fisher_two_sided(bad_a, n_a - bad_a, bad_b, n_b - bad_b)
+    as_predicted = bad_a / n_a > bad_b / n_b
+    verdict = "supported" if as_predicted and p < ALPHA else "not supported"
+    return [
+        name,
+        f"{a_label}: {bad_a}/{n_a} ({100 * bad_a / n_a:.0f}%)",
+        f"{b_label}: {bad_b}/{n_b} ({100 * bad_b / n_b:.0f}%)",
+        f"{p:.3f}",
+        verdict if as_predicted else "opposite direction",
+    ]
+
+
+def fresh_lines(rows: list[ResultRow]) -> list[str]:
+    fresh = [r for r in rows if r.batch == "fresh"]
+    if not fresh:
+        return []
+    pilot = [r for r in rows if r.batch != "fresh"]
+    threshold = calibrate(pilot).threshold  # fixed on the pilot tokens only; never sees fresh ones
+    done = [r for r in fresh if classify(r.lifecycle, threshold) is not None]
+    # H1 and H2 predict that the first group does BETTER, so test them with the groups swapped.
+    h1 = _check_row(
+        "H1 smart money",
+        "no smart wallets",
+        [r for r in done if r.sm_wallets == 0],
+        "3+ smart wallets",
+        [r for r in done if r.sm_wallets >= 3],
+        threshold,
+    )
+    h2 = _check_row(
+        "H2 bundle status",
+        "bundle holding",
+        [r for r in done if r.bundle_status == "holding"],
+        "bundle distributing",
+        [r for r in done if r.bundle_status == "distributing"],
+        threshold,
+    )
+    h3 = _check_row(
+        "H3 verdicts separate",
+        "AVOID",
+        [r for r in done if r.verdict == "AVOID"],
+        "GREEN or WATCH",
+        [r for r in done if r.verdict != "AVOID"],
+        threshold,
+    )
+    h4 = _check_row(
+        "H4 vetoes work",
+        "a veto fired",
+        [r for r in done if r.vetoes],
+        "no veto",
+        [r for r in done if not r.vetoes],
+        threshold,
+    )
+    return [
+        "## Pre-registered checks on fresh tokens",
+        "",
+        "These four checks were written down, with their predicted direction, before the fresh "
+        "tokens were fetched, and the scoring was left unchanged. H1 and H2 came from looking at "
+        "the first 83 tokens, so they are hypotheses being tested here on tokens they did not "
+        "come from. H3 and H4 ask whether the current verdicts and vetoes do anything. "
+        f"Two-sided Fisher exact test; with {CHECKS} checks the bar is p < {ALPHA:.4f}. "
+        "The outcome is dead or collapsed by +72h, using the volume threshold calibrated on the "
+        "first tokens only" + (f" ({100 * threshold:.1f}%)." if threshold is not None else "."),
+        "",
+        f"Fresh tokens analysed: {len(fresh)}; with a complete 72-hour window: {len(done)}.",
+        "",
+        _table(
+            ["Check", "Predicted worse group", "Comparison group", "p", "Result"], [h1, h2, h3, h4]
+        ),
+        "",
+    ]
+
+
 def build_report(
     rows: list[ResultRow],
     skips: list[SkipRow],
@@ -308,6 +413,7 @@ def build_report(
         "",
         "![Dump rate by verdict](backtest.svg)",
         "",
+        *fresh_lines(rows),
         *lifecycle_lines(rows, cal),
         "## Outcomes by verdict",
         "",

@@ -84,3 +84,23 @@ Stop after `discover` and check the candidate count before spending on `analyze`
 Analysis costs about 80-130 credits per token (worst case is printed by `estimate`).
 To re-score after editing `scoring.yaml` at no cost, delete `backtest/cache/results.jsonl` and
 run `analyze` again: the cached responses are reused as long as the requests are unchanged.
+
+## Pre-registered checks on fresh tokens (written 2026-09-26, before the fresh batch was fetched)
+
+The first 83 analysed tokens (batch `pilot`) showed no separation between AVOID, WATCH and GREEN
+(dead or collapsed by +72h: 61%, 67%, 67%). Looking at them afterwards suggested two leads, but
+those were found by trying many cuts, so they are hypotheses, not results. The scoring is frozen as
+it is. A new batch of tokens from an earlier, non-overlapping window (batch `fresh`) tests these
+four checks; the outcome is "dead or collapsed by +72h", with the volume threshold fixed on the
+pilot tokens only.
+
+| Check | Predicted | Pilot observation |
+|---|---|---|
+| H1 smart money | tokens with no smart-money wallets do worse than tokens with 3 or more | 72% vs 45% |
+| H2 bundle status | tokens whose bundle is still holding do worse than those distributing | 70% vs 39% |
+| H3 verdicts | AVOID tokens do worse than GREEN and WATCH tokens (the signal works) | 61% vs 67%, opposite |
+| H4 vetoes | tokens where a veto fired do worse than those without one | no effect seen |
+
+Test: two-sided Fisher exact on the fresh tokens only. With four checks the bar is p < 0.0125
+(Bonferroni). A check counts as supported only if the direction is as predicted and it passes that
+bar. The report prints all four whatever the outcome.
