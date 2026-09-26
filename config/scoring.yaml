@@ -47,3 +47,14 @@ monitor:
   reeval_seconds: 900
 alerts:
   cooldown_minutes: 60
+backtest:
+  days: 14
+  lag_days: 3
+  min_volume_usd: 300000
+  max_candidates_per_day_chain: 30
+  candle_timeframe: 5m
+  max_trade_pages: 15
+  tier_pages: 2
+  exit_trade_pages: 4
+  dump_threshold_pct: 50
+  horizons_hours: [6, 24, 72]

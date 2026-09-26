@@ -34,7 +34,14 @@ def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
-def score_token(inputs: ScoreInputs, cfg: ScoringWeightsConfig) -> ScoreResult:
+def score_token(
+    inputs: ScoreInputs,
+    cfg: ScoringWeightsConfig,
+    unavailable: frozenset[str] = frozenset(),
+) -> ScoreResult:
+    """Score a token. Components named in `unavailable` (data that does not exist, for example in
+    a backtest) are left out of both the sum and the weights, so the score is re-weighted over the
+    components that remain."""
     sm, bundle = inputs.smart_money, inputs.bundle
     reasons: list[str] = []
     notes: list[str] = []
@@ -64,7 +71,7 @@ def score_token(inputs: ScoreInputs, cfg: ScoringWeightsConfig) -> ScoreResult:
         ratio = inputs.volume_usd / inputs.liquidity_usd
         volume_liquidity = _clamp01(ratio / cfg.full_credit_volume_liquidity_ratio)
         notes.append(f"volume/liquidity {ratio:.1f}x")
-    else:
+    elif "volume_liquidity" not in unavailable:
         notes.append("volume or liquidity unavailable")
 
     holder_growth = 0.0
@@ -72,7 +79,7 @@ def score_token(inputs: ScoreInputs, cfg: ScoringWeightsConfig) -> ScoreResult:
         rate = sm.total_holders / max(inputs.token_age_hours, 1.0)
         holder_growth = _clamp01(rate / cfg.full_credit_holders_per_hour)
         notes.append(f"{rate:.0f} new holders per hour")
-    else:
+    elif "holder_growth" not in unavailable:
         notes.append("holder count or token age unavailable")
 
     components = {
@@ -83,10 +90,10 @@ def score_token(inputs: ScoreInputs, cfg: ScoringWeightsConfig) -> ScoreResult:
         "volume_liquidity": volume_liquidity,
         "holder_growth": holder_growth,
     }
-    weights = cfg.weights.model_dump()
+    weights = {k: w for k, w in cfg.weights.model_dump().items() if k not in unavailable}
     score = (
         100
-        * sum(weights[name] * value for name, value in components.items())
+        * sum(weights[name] * value for name, value in components.items() if name in weights)
         / sum(weights.values())
     )
 

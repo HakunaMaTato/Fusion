@@ -259,7 +259,7 @@ def measure_bundle(
     )
 
 
-async def _lookup_funder(
+async def lookup_funder(
     client: NansenClient,
     chain: str,
     wallet: str,
@@ -328,7 +328,7 @@ async def analyze_bundle(
     wallets = wallets_to_look_up(buys, cfg)
     # Wait for every lookup before re-raising, so a budget error never leaves tasks running.
     found = await asyncio.gather(
-        *(_lookup_funder(client, chain, w, cfg, related_wallets_ttl_seconds) for w in wallets),
+        *(lookup_funder(client, chain, w, cfg, related_wallets_ttl_seconds) for w in wallets),
         return_exceptions=True,
     )
     funders: dict[str, Funder | None] = {}

@@ -24,4 +24,13 @@ make soak        # ten real minutes of the worker against a scripted Nansen (slo
 
 Dashboard: `/` (tokens), `/token/{chain}/{address}`, `/status`; see `docs/dashboard.md` (demo data: `python scripts/seed_demo.py <db-url>`).
 
+Backtest (spends Nansen credits; staged, capped and asked for confirmation; see `docs/backtest.md`):
+
+```bash
+python -m backtest.run estimate --limit 15
+NANSEN_MODE=live python -m backtest.run discover --max-credits 300
+NANSEN_MODE=live python -m backtest.run analyze --limit 3 --max-credits 500
+python -m backtest.run report
+```
+
 `/healthz` reports 503 when the worker heartbeat is stale. See `docs/worker.md` for the loop, credit pacing and alerts.

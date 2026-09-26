@@ -491,3 +491,133 @@ class TGMFlowIntelligenceResponse(BaseModel):
 
     data: list[TGMFlowIntelligence]
     warnings: list[str] | None = None
+
+
+# --- Historical (beta): POST /api/v1beta1/token-screener/historical ---
+
+
+class TokenScreenerHistoricalFilters(BaseModel):
+    volume_usd: NumericRangeFilter | None = None
+    market_cap_usd: NumericRangeFilter | None = None
+    liquidity_usd: NumericRangeFilter | None = None
+    token_age_days: IntegerRangeFilter | None = None
+
+
+class TokenScreenerHistoricalRequest(BaseModel):
+    to_date: str
+    timeframe_days: int
+    chains: list[str]
+    filters: TokenScreenerHistoricalFilters | None = None
+    pagination: PaginationRequest | None = None
+    order_by: list[SortOrder] | None = None
+
+
+class TokenScreenerHistoricalToken(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    token_address: str
+    token_symbol: str
+    chain: str
+    price_usd: float | None = None
+    price_change: float | None = None
+    market_cap_usd: float | None = None
+    fdv: float | None = None
+    volume: float | None = None
+    buy_volume: float | None = None
+    sell_volume: float | None = None
+    netflow: float | None = None
+    token_age_days: int | None = None
+    liquidity: float | None = None
+
+
+class TokenScreenerHistoricalResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[TokenScreenerHistoricalToken]
+    pagination: PaginationInfo
+
+
+# --- Historical (beta): POST /api/v1beta1/tgm/historical-dex-trades ---
+
+
+class TGMHistoricalDexTradesFilters(BaseModel):
+    action: Literal["BUY", "SELL"] | None = None
+    include_labels: list[str] | None = None
+    value_usd: NumericRangeFilter | None = None
+    trader_address: str | None = None
+
+
+class TGMHistoricalDexTradesRequest(BaseModel):
+    chain: str
+    token_address: str
+    date_range: DateRange
+    pagination: PaginationRequest | None = None
+    filters: TGMHistoricalDexTradesFilters | None = None
+    order_by: list[SortOrder] | None = None
+
+
+class TGMHistoricalDexTrade(BaseModel):
+    """No token_address or traded_token_address in the historical response."""
+
+    model_config = ConfigDict(extra="allow")
+
+    block_timestamp: str
+    transaction_hash: str
+    trader_address: str
+    action: Literal["BUY", "SELL"]
+    token_name: str
+    token_amount: float
+    traded_token_name: str
+    traded_token_amount: float
+    estimated_swap_price_usd: float
+    estimated_value_usd: float
+    trader_address_label: str | None = None
+
+
+class TGMHistoricalDexTradesResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[TGMHistoricalDexTrade]
+    pagination: PaginationInfo
+
+
+# --- Historical (beta): POST /api/v1beta1/tgm/historical-token-ohlcv ---
+
+
+class TGMHistoricalTokenOhlcvRequest(BaseModel):
+    chain: str
+    token_address: str
+    date_from: str
+    as_of_date: str
+    timeframe: Literal["5m", "15m", "30m", "1h", "4h", "1d", "1w"]
+
+
+class MarketCapData(BaseModel):
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    close: float | None = None
+
+
+class OhlcvCandle(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    interval_start: str
+    market_cap: MarketCapData
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    close: float | None = None
+    volume: float | None = None
+    volume_usd: float | None = None
+
+
+class TokenOhlcvResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    chain: str
+    token_address: str
+    timeframe: str
+    data: list[OhlcvCandle]
+    truncated: bool | None = None
+    truncation_note: str | None = None

@@ -10,10 +10,16 @@ from app.nansen.models import (
     TGMDexTradesResponse,
     TGMFlowIntelligenceRequest,
     TGMFlowIntelligenceResponse,
+    TGMHistoricalDexTradesRequest,
+    TGMHistoricalDexTradesResponse,
+    TGMHistoricalTokenOhlcvRequest,
     TGMHoldersRequest,
     TGMHoldersResponse,
     TGMTokenInformationRequest,
     TGMTokenInformationResponse,
+    TokenOhlcvResponse,
+    TokenScreenerHistoricalRequest,
+    TokenScreenerHistoricalResponse,
     TokenScreenerRequest,
     TokenScreenerResponse,
 )
@@ -84,3 +90,27 @@ async def tgm_flow_intelligence(
     body = request.model_dump(mode="json", exclude_none=True, by_alias=True)
     data = await client.post("/api/v1/tgm/flow-intelligence", body)
     return TGMFlowIntelligenceResponse.model_validate(data)
+
+
+async def token_screener_historical(
+    client: NansenClient, request: TokenScreenerHistoricalRequest
+) -> TokenScreenerHistoricalResponse:
+    body = request.model_dump(mode="json", exclude_none=True, by_alias=True)
+    data = await client.post("/api/v1beta1/token-screener/historical", body)
+    return TokenScreenerHistoricalResponse.model_validate(data)
+
+
+async def tgm_historical_dex_trades(
+    client: NansenClient, request: TGMHistoricalDexTradesRequest
+) -> TGMHistoricalDexTradesResponse:
+    body = request.model_dump(mode="json", exclude_none=True, by_alias=True)
+    data = await client.post("/api/v1beta1/tgm/historical-dex-trades", body)
+    return TGMHistoricalDexTradesResponse.model_validate(data)
+
+
+async def tgm_historical_token_ohlcv(
+    client: NansenClient, request: TGMHistoricalTokenOhlcvRequest
+) -> TokenOhlcvResponse:
+    body = request.model_dump(mode="json", exclude_none=True, by_alias=True)
+    data = await client.post("/api/v1beta1/tgm/historical-token-ohlcv", body)
+    return TokenOhlcvResponse.model_validate(data)
