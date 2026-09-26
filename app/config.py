@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import yaml
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -57,12 +57,35 @@ class SmartMoneyConfig(BaseModel):
     label_weights: dict[str, float]
 
 
+class ScoreWeights(BaseModel):
+    sm_participation: float
+    sm_holding: float
+    bundle_supply: float
+    bundle_status: float
+    volume_liquidity: float
+    holder_growth: float
+
+
 class ScoringWeightsConfig(BaseModel):
-    veto_bundle_supply_pct: float
+    veto_bundle_supply_pct: float = Field(gt=0)
     veto_sm_net_selling: bool
     veto_sm_in_bundle: bool
     green_min: float
     watch_min: float
+    weights: ScoreWeights
+    status_scores: dict[str, float]
+    full_credit_weighted_score: float = Field(gt=0)
+    full_credit_volume_liquidity_ratio: float = Field(gt=0)
+    full_credit_holders_per_hour: float = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _check_consistency(self) -> "ScoringWeightsConfig":
+        missing = {"none", "holding", "distributing", "exited"} - set(self.status_scores)
+        if missing:
+            raise ValueError(f"status_scores is missing {sorted(missing)}")
+        if sum(self.weights.model_dump().values()) <= 0:
+            raise ValueError("scoring weights must sum to more than 0")
+        return self
 
 
 class BudgetConfig(BaseModel):

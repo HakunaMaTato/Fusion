@@ -27,6 +27,17 @@ scoring:
   veto_sm_in_bundle: true
   green_min: 70
   watch_min: 40
+  weights:
+    sm_participation: 25
+    sm_holding: 15
+    bundle_supply: 20
+    bundle_status: 10
+    volume_liquidity: 15
+    holder_growth: 15
+  status_scores: {none: 1.0, holding: 0.4, exited: 0.3, distributing: 0.0}
+  full_credit_weighted_score: 5.0
+  full_credit_volume_liquidity_ratio: 5.0
+  full_credit_holders_per_hour: 50.0
 budget:
   max_deep_analyses_per_hour: 20
   related_wallets_cache_hours: 24

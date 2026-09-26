@@ -1,7 +1,13 @@
 from collections.abc import Callable
 from typing import Any
 
-from app.config import BundleConfig, DiscoveryConfig, Settings, SmartMoneyConfig
+from app.config import (
+    BundleConfig,
+    DiscoveryConfig,
+    ScoringWeightsConfig,
+    Settings,
+    SmartMoneyConfig,
+)
 from app.nansen.client import NansenClient
 from app.nansen.models import (
     ProfilerRelatedWallet,
@@ -158,3 +164,27 @@ def smart_money_config(**overrides: object) -> SmartMoneyConfig:
     }
     values.update(overrides)
     return SmartMoneyConfig(**values)  # type: ignore[arg-type]
+
+
+def scoring_config(**overrides: object) -> ScoringWeightsConfig:
+    values: dict[str, object] = {
+        "veto_bundle_supply_pct": 30,
+        "veto_sm_net_selling": True,
+        "veto_sm_in_bundle": True,
+        "green_min": 70,
+        "watch_min": 40,
+        "weights": {
+            "sm_participation": 25,
+            "sm_holding": 15,
+            "bundle_supply": 20,
+            "bundle_status": 10,
+            "volume_liquidity": 15,
+            "holder_growth": 15,
+        },
+        "status_scores": {"none": 1.0, "holding": 0.4, "exited": 0.3, "distributing": 0.0},
+        "full_credit_weighted_score": 5.0,
+        "full_credit_volume_liquidity_ratio": 5.0,
+        "full_credit_holders_per_hour": 50.0,
+    }
+    values.update(overrides)
+    return ScoringWeightsConfig(**values)  # type: ignore[arg-type]

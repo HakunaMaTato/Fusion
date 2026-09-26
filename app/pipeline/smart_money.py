@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ from app.nansen.models import (
     PaginationRequest,
     SortOrder,
     TGMDexTrade,
+    TGMDexTradesFilters,
     TGMDexTradesRequest,
     TGMTokenInformationRequest,
 )
@@ -39,6 +41,8 @@ class SmartMoneyMetrics(BaseModel):
     first_entry_at: datetime | None
     minutes_after_launch: float | None
     market_cap_at_entry: float | None
+    smart_wallets: frozenset[str] = frozenset()
+    total_holders: int | None = None
 
 
 def match_label(label: str | None, cfg: SmartMoneyConfig) -> str | None:
@@ -52,9 +56,12 @@ def match_label(label: str | None, cfg: SmartMoneyConfig) -> str | None:
     return None
 
 
-def wallet_label_and_weight(labels: list[str | None], cfg: SmartMoneyConfig) -> tuple[str, float]:
-    """A wallet's best label: the highest-weighted configured match, else `other`."""
-    matched = [key for key in (match_label(label, cfg) for label in labels) if key is not None]
+def wallet_label_and_weight(
+    labels: list[str | None], cfg: SmartMoneyConfig, tiers: frozenset[str] = frozenset()
+) -> tuple[str, float]:
+    """A wallet's best label: the highest-weighted tier it belongs to or a trade label matches."""
+    matched = {key for key in (match_label(label, cfg) for label in labels) if key is not None}
+    matched |= {tier for tier in tiers if tier in cfg.label_weights}
     if not matched:
         return OTHER_LABEL, cfg.default_label_weight
     best = max(matched, key=lambda key: cfg.label_weights[key])
@@ -68,6 +75,8 @@ def compute_smart_money_metrics(
     deployed_at: datetime | None,
     now: datetime,
     circulating_supply: float | None,
+    total_holders: int | None = None,
+    tiers_by_wallet: Mapping[str, frozenset[str]] | None = None,
 ) -> SmartMoneyMetrics:
     """Metrics from the token's smart-money trades (both sides), oldest to newest."""
     dated = sorted(((parse_timestamp(t.block_timestamp), t) for t in trades), key=lambda p: p[0])
@@ -94,7 +103,8 @@ def compute_smart_money_metrics(
     label_counts: dict[str, int] = defaultdict(int)
     weighted_score = 0.0
     for wallet in buyers:
-        label, weight = wallet_label_and_weight(labels_by_wallet[wallet], cfg)
+        tiers = (tiers_by_wallet or {}).get(wallet, frozenset())
+        label, weight = wallet_label_and_weight(labels_by_wallet[wallet], cfg, tiers)
         label_counts[label] += 1
         weighted_score += weight
 
@@ -125,7 +135,85 @@ def compute_smart_money_metrics(
         first_entry_at=first_entry_at,
         minutes_after_launch=minutes_after_launch,
         market_cap_at_entry=market_cap_at_entry,
+        smart_wallets=frozenset(buyers),
+        total_holders=total_holders,
     )
+
+
+async def _fetch_trades(
+    client: NansenClient,
+    *,
+    chain: str,
+    token_address: str,
+    start: datetime,
+    now: datetime,
+    filters: TGMDexTradesFilters | None = None,
+    max_pages: int = MAX_TRADE_PAGES,
+) -> tuple[list[TGMDexTrade], bool]:
+    """All pages of smart-money trades (ascending) and whether the page cap truncated them."""
+    trades: list[TGMDexTrade] = []
+    for page in range(1, max_pages + 1):
+        request = TGMDexTradesRequest(
+            chain=chain,
+            token_address=token_address,
+            only_smart_money=True,
+            date=DateRange.model_validate({"from": iso_z(start), "to": iso_z(now)}),
+            pagination=PaginationRequest(page=page, per_page=TRADES_PER_PAGE),
+            filters=filters,
+            order_by=[SortOrder(field="block_timestamp", direction="ASC")],
+        )
+        response = await tgm_dex_trades(client, request)
+        trades.extend(response.data)
+        if response.pagination.is_last_page:
+            return trades, False
+    return trades, True
+
+
+async def _fetch_tiers(
+    client: NansenClient,
+    cfg: SmartMoneyConfig,
+    *,
+    chain: str,
+    token_address: str,
+    start: datetime,
+    now: datetime,
+) -> dict[str, frozenset[str]]:
+    """Which tiers each smart buyer belongs to: one filtered call per tier (1 credit each).
+
+    Tier membership is only knowable from which filtered call returned the wallet, because the
+    rows' trader_address_label does not name the tier.
+    """
+    tiers: dict[str, set[str]] = defaultdict(set)
+    for tier in cfg.label_weights:
+        try:
+            trades, truncated = await _fetch_trades(
+                client,
+                chain=chain,
+                token_address=token_address,
+                start=start,
+                now=now,
+                filters=TGMDexTradesFilters(include_smart_money_labels=[tier], action="BUY"),
+                max_pages=1,
+            )
+        except NansenAPIError as exc:
+            logger.warning(
+                "tier lookup failed, tier ignored",
+                extra={
+                    "chain": chain,
+                    "token_address": token_address,
+                    "tier": tier,
+                    "status": exc.status,
+                },
+            )
+            continue
+        if truncated:
+            logger.warning(
+                "tier lookup truncated to the first page",
+                extra={"chain": chain, "token_address": token_address, "tier": tier},
+            )
+        for trade in trades:
+            tiers[trade.trader_address].add(tier)
+    return {wallet: frozenset(found) for wallet, found in tiers.items()}
 
 
 async def analyze_smart_money(
@@ -138,30 +226,22 @@ async def analyze_smart_money(
     now: datetime,
 ) -> SmartMoneyMetrics:
     start = deployed_at or now - timedelta(hours=cfg.flow_window_hours)
-    trades: list[TGMDexTrade] = []
-    for page in range(1, MAX_TRADE_PAGES + 1):
-        request = TGMDexTradesRequest(
-            chain=chain,
-            token_address=token_address,
-            only_smart_money=True,
-            date=DateRange.model_validate({"from": iso_z(start), "to": iso_z(now)}),
-            pagination=PaginationRequest(page=page, per_page=TRADES_PER_PAGE),
-            order_by=[SortOrder(field="block_timestamp", direction="ASC")],
-        )
-        response = await tgm_dex_trades(client, request)
-        trades.extend(response.data)
-        if response.pagination.is_last_page:
-            break
-    else:
+    trades, truncated = await _fetch_trades(
+        client, chain=chain, token_address=token_address, start=start, now=now
+    )
+    if truncated:
         # Ascending order means the missing tail is the newest trades, which biases toward holding.
         logger.warning(
             "smart money trades truncated at the page cap",
             extra={"chain": chain, "token_address": token_address},
         )
 
-    circulating_supply: float | None = None
+    tiers: dict[str, frozenset[str]] = {}
     if any(trade.action == "BUY" for trade in trades):
-        circulating_supply = await _circulating_supply(client, chain, token_address)
+        tiers = await _fetch_tiers(
+            client, cfg, chain=chain, token_address=token_address, start=start, now=now
+        )
+    circulating_supply, total_holders = await _token_stats(client, chain, token_address)
 
     return compute_smart_money_metrics(
         trades,
@@ -169,10 +249,15 @@ async def analyze_smart_money(
         deployed_at=deployed_at,
         now=now,
         circulating_supply=circulating_supply,
+        total_holders=total_holders,
+        tiers_by_wallet=tiers,
     )
 
 
-async def _circulating_supply(client: NansenClient, chain: str, token_address: str) -> float | None:
+async def _token_stats(
+    client: NansenClient, chain: str, token_address: str
+) -> tuple[float | None, int | None]:
+    """Circulating supply and holder count from one token-information call (1 credit)."""
     try:
         info = await tgm_token_information(
             client,
@@ -180,9 +265,13 @@ async def _circulating_supply(client: NansenClient, chain: str, token_address: s
         )
     except NansenAPIError as exc:
         logger.warning(
-            "token information lookup failed, market cap at entry unknown",
+            "token information lookup failed, supply and holder count unknown",
             extra={"chain": chain, "token_address": token_address, "status": exc.status},
         )
-        return None
+        return None, None
     details = info.data.token_details
-    return details.circulating_supply if details is not None else None
+    metrics = info.data.spot_metrics
+    return (
+        details.circulating_supply if details is not None else None,
+        metrics.total_holders if metrics is not None else None,
+    )
