@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:////data/lp-radar.db"
     dashboard_basic_auth: str = ""
     log_level: str = "INFO"
+    dashboard_base_url: str = ""
 
     @field_validator("chains", mode="before")
     @classmethod
@@ -91,6 +92,16 @@ class ScoringWeightsConfig(BaseModel):
 class BudgetConfig(BaseModel):
     max_deep_analyses_per_hour: int
     related_wallets_cache_hours: float
+    estimated_analysis_credits: float
+    estimated_reeval_credits: float
+
+
+class MonitorConfig(BaseModel):
+    reeval_seconds: int
+
+
+class AlertsConfig(BaseModel):
+    cooldown_minutes: float
 
 
 class ScoringConfig(BaseModel):
@@ -99,6 +110,8 @@ class ScoringConfig(BaseModel):
     smart_money: SmartMoneyConfig
     scoring: ScoringWeightsConfig
     budget: BudgetConfig
+    monitor: MonitorConfig
+    alerts: AlertsConfig
 
 
 @lru_cache

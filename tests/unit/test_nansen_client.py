@@ -21,7 +21,7 @@ def _settings(**overrides: object) -> Settings:
         "daily_credit_budget": 100,
     }
     defaults.update(overrides)
-    return Settings(**defaults)  # type: ignore[arg-type]
+    return Settings(_env_file=None, **defaults)  # type: ignore[arg-type]
 
 
 def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> None:

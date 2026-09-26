@@ -24,7 +24,7 @@ class StubClient(NansenClient):
     """NansenClient whose post() serves canned responses per endpoint and records requests."""
 
     def __init__(self, responses: dict[str, Responder]) -> None:
-        super().__init__(Settings(nansen_mode="replay"))
+        super().__init__(Settings(_env_file=None, nansen_mode="replay"))
         self._responses = responses
         self.requests: list[tuple[str, dict[str, Any]]] = []
 

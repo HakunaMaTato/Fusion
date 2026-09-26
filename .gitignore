@@ -15,7 +15,7 @@ dist/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-.pytest-tmp/
+.pytest-tmp*/
 htmlcov/
 .coverage
 
