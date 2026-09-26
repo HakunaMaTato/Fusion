@@ -311,6 +311,7 @@ def _check_row(
     b_label: str,
     b: list[ResultRow],
     threshold: float | None,
+    alpha: float = ALPHA,
 ) -> list[str]:
     """Predicted: group A has the higher dead-or-collapsed rate than group B."""
     (bad_a, n_a), (bad_b, n_b) = _bad_count(a, threshold), _bad_count(b, threshold)
@@ -318,7 +319,7 @@ def _check_row(
         return [name, f"{a_label}: n/a", f"{b_label}: n/a", "n/a", "not testable"]
     p = fisher_two_sided(bad_a, n_a - bad_a, bad_b, n_b - bad_b)
     as_predicted = bad_a / n_a > bad_b / n_b
-    verdict = "supported" if as_predicted and p < ALPHA else "not supported"
+    verdict = "supported" if as_predicted and p < alpha else "not supported"
     return [
         name,
         f"{a_label}: {bad_a}/{n_a} ({100 * bad_a / n_a:.0f}%)",
@@ -332,7 +333,7 @@ def fresh_lines(rows: list[ResultRow]) -> list[str]:
     fresh = [r for r in rows if r.batch == "fresh"]
     if not fresh:
         return []
-    pilot = [r for r in rows if r.batch != "fresh"]
+    pilot = [r for r in rows if r.batch == "pilot"]
     threshold = calibrate(pilot).threshold  # fixed on the pilot tokens only; never sees fresh ones
     done = [r for r in fresh if classify(r.lifecycle, threshold) is not None]
     # H1 and H2 predict that the first group does BETTER, so test them with the groups swapped.
@@ -388,6 +389,70 @@ def fresh_lines(rows: list[ResultRow]) -> list[str]:
     ]
 
 
+CHECKS2 = 6
+ALPHA2 = 0.05 / CHECKS2
+FAST_PUMP_MINUTES = 30.0
+BIG_BUNDLE_PCT = 15.0
+
+
+def _minutes_to_decision(row: ResultRow) -> float:
+    return (row.decision_at - row.launch_at).total_seconds() / 60
+
+
+def fresh2_lines(rows: list[ResultRow]) -> list[str]:
+    """Six checks written down before the second fresh batch (`fresh2`) was fetched."""
+    batch = [r for r in rows if r.batch == "fresh2"]
+    if not batch:
+        return []
+    pilot = [r for r in rows if r.batch == "pilot"]
+    threshold = calibrate(pilot).threshold  # the pilot tokens only, as for the first fresh batch
+    done = [r for r in batch if classify(r.lifecycle, threshold) is not None]
+
+    def check(name: str, a_label: str, a_sel, b_label: str, b_sel) -> list[str]:  # type: ignore[no-untyped-def]
+        return _check_row(
+            name,
+            a_label,
+            [r for r in done if a_sel(r)],
+            b_label,
+            [r for r in done if b_sel(r)],
+            threshold,
+            ALPHA2,
+        )
+
+    table = [
+        check("H1 smart money", "no smart wallets", lambda r: r.sm_wallets == 0,
+              "3+ smart wallets", lambda r: r.sm_wallets >= 3),
+        check("H2 bundle status", "bundle holding", lambda r: r.bundle_status == "holding",
+              "bundle distributing", lambda r: r.bundle_status == "distributing"),
+        check("H3 verdicts separate", "AVOID", lambda r: r.verdict == "AVOID",
+              "GREEN or WATCH", lambda r: r.verdict != "AVOID"),
+        check("H4 vetoes work", "a veto fired", lambda r: bool(r.vetoes),
+              "no veto", lambda r: not r.vetoes),
+        check("H5 pump speed", f"$1M within {FAST_PUMP_MINUTES:.0f} min",
+              lambda r: _minutes_to_decision(r) <= FAST_PUMP_MINUTES,
+              "slower", lambda r: _minutes_to_decision(r) > FAST_PUMP_MINUTES),
+        check("H6 big bundle", f"bundle {BIG_BUNDLE_PCT:.0f}%+ of supply",
+              lambda r: r.bundle_supply_pct >= BIG_BUNDLE_PCT,
+              "smaller or none", lambda r: r.bundle_supply_pct < BIG_BUNDLE_PCT),
+    ]  # fmt: skip
+    return [
+        "## Second fresh batch: six pre-registered checks",
+        "",
+        "Written down, with predicted directions, before this batch (`fresh2`, tokens from a "
+        "window earlier than both previous batches) was fetched; the scoring was left unchanged. "
+        "H1 to H4 replicate the first fresh batch; H5 and H6 come from looking at the earlier "
+        "tokens afterwards, so this is their first test on data they did not come from. "
+        f"Two-sided Fisher exact test; with {CHECKS2} checks the bar is p < {ALPHA2:.4f}. "
+        "The outcome is dead or collapsed by +72h, using the volume threshold calibrated on the "
+        "pilot tokens only" + (f" ({100 * threshold:.1f}%)." if threshold is not None else "."),
+        "",
+        f"Tokens analysed: {len(batch)}; with a complete 72-hour window: {len(done)}.",
+        "",
+        _table(["Check", "Predicted worse group", "Comparison group", "p", "Result"], table),
+        "",
+    ]
+
+
 def build_report(
     rows: list[ResultRow],
     skips: list[SkipRow],
@@ -414,6 +479,7 @@ def build_report(
         "![Dump rate by verdict](backtest-results.svg)",
         "",
         *fresh_lines(rows),
+        *fresh2_lines(rows),
         *lifecycle_lines(rows, cal),
         "## Outcomes by verdict",
         "",

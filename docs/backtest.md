@@ -104,3 +104,27 @@ pilot tokens only.
 Test: two-sided Fisher exact on the fresh tokens only. With four checks the bar is p < 0.0125
 (Bonferroni). A check counts as supported only if the direction is as predicted and it passes that
 bar. The report prints all four whatever the outcome.
+
+## Second fresh batch: six checks (written 2026-09-26, before it was fetched)
+
+The first fresh batch (52 tokens) supported H1 (smart money, p=0.003), showed H2 in the predicted
+direction without passing the corrected bar (p=0.032), and did not support H3 or H4. Looking at
+all 135 tokens afterwards showed two more leads. Both are hypotheses until tested on tokens they
+did not come from. The scoring is frozen as it is. A third batch (`fresh2`) comes from an earlier,
+non-overlapping window (2026-08-13 to 2026-08-26); the outcome and the volume threshold are as
+before (dead or collapsed by +72h, threshold fixed on the pilot tokens only).
+
+| Check | Predicted | Earlier observation |
+|---|---|---|
+| H1 smart money | no smart-money wallets do worse than 3 or more | 81% vs 27% on the first fresh batch |
+| H2 bundle status | a bundle still holding does worse than one distributing | 80% vs 40% (p=0.032) |
+| H3 verdicts | AVOID tokens do worse than GREEN and WATCH tokens | 66% vs 45% (p=0.16) |
+| H4 vetoes | tokens where a veto fired do worse than those without | opposite direction |
+| H5 pump speed | tokens that reach $1M within 30 minutes of launch do worse than slower ones | minutes to the decision ranks outcomes (AUC 0.69, 0.76 on fresh); found after the fact |
+| H6 big bundle | tokens with a bundle holding 15% or more of supply do worse than the rest | 76% vs 58% or less; found after the fact |
+
+Test: two-sided Fisher exact on the new batch only. With six checks the bar is p < 0.0083
+(Bonferroni). A check counts as supported only if the direction is as predicted and it passes that
+bar. The report prints all six whatever the outcome. Not part of this registration: a stricter
+bundle detector (a cluster must share a funder) and any change to the score's weights or the
+verdict cut-offs; those would need tuning on data already seen and come after this batch.

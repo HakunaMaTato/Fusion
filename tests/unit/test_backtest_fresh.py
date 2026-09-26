@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -7,7 +7,7 @@ from app.config import Settings, load_scoring_config
 from backtest import run as run_module
 from backtest.client import BacktestClient
 from backtest.discover import HistCandidate
-from backtest.report import build_report, fisher_two_sided, fresh_lines
+from backtest.report import build_report, fisher_two_sided, fresh2_lines, fresh_lines
 from backtest.results import ResultRow, load_results
 from tests.unit.test_backtest_lifecycle import build, lifecycle, with_lifecycle
 from tests.unit.test_backtest_tools import row
@@ -208,3 +208,112 @@ async def test_analyze_can_be_limited_to_candidates_before_a_date(
     )
 
     assert seen == ["early"]
+
+
+# --- the second fresh batch: six checks ---
+
+
+def fresh2(
+    bad: bool,
+    sm_wallets: int = 1,
+    minutes: float = 60.0,
+    bundle_pct: float = 1.0,
+    status: str = "none",
+    verdict: str = "WATCH",
+    vetoes: list[str] | None = None,
+) -> ResultRow:
+    lc = lifecycle(-97, -97, 100.0, 0.0) if bad else lifecycle(20, -10, 100.0, 50.0)
+    launch = datetime(2026, 8, 20, 2, 0, tzinfo=UTC)
+    return with_lifecycle(lc, verdict).model_copy(
+        update={
+            "sm_wallets": sm_wallets,
+            "bundle_status": status,
+            "bundle_supply_pct": bundle_pct,
+            "vetoes": vetoes or [],
+            "batch": "fresh2",
+            "launch_at": launch,
+            "decision_at": launch + timedelta(minutes=minutes),
+        }
+    )
+
+
+def check_line(text: str, name: str) -> str:
+    return next(x for x in text.splitlines() if x.startswith(f"| {name}"))
+
+
+def test_no_second_batch_no_section() -> None:
+    assert fresh2_lines(pilot_rows()) == []
+
+
+def test_all_six_checks_are_printed_whatever_the_outcome() -> None:
+    rows = pilot_rows() + [fresh2(bad=i % 2 == 0) for i in range(10)]
+
+    text = "\n".join(fresh2_lines(rows))
+
+    for name in ("H1", "H2", "H3", "H4", "H5", "H6"):
+        assert check_line(text, name)
+    assert "with 6 checks the bar is p < 0.0083" in text
+
+
+def test_pump_speed_check_supports_a_real_effect() -> None:
+    rows = pilot_rows()
+    rows += [fresh2(bad=True, minutes=5) for _ in range(15)]  # fast pumps die
+    rows += [fresh2(bad=False, minutes=90) for _ in range(15)]
+
+    line = check_line("\n".join(fresh2_lines(rows)), "H5")
+
+    assert "$1M within 30 min: 15/15" in line and line.endswith("| supported |")
+
+
+def test_the_pump_speed_boundary_is_inclusive() -> None:
+    rows = pilot_rows() + [fresh2(bad=True, minutes=30) for _ in range(4)]
+    rows += [fresh2(bad=False, minutes=31) for _ in range(4)]
+
+    line = check_line("\n".join(fresh2_lines(rows)), "H5")
+
+    assert "$1M within 30 min: 4/4" in line and "slower: 0/4" in line
+
+
+def test_big_bundle_check_uses_the_fifteen_percent_line() -> None:
+    rows = pilot_rows()
+    rows += [fresh2(bad=True, bundle_pct=15.0) for _ in range(15)]
+    rows += [fresh2(bad=False, bundle_pct=14.9) for _ in range(15)]
+
+    line = check_line("\n".join(fresh2_lines(rows)), "H6")
+
+    assert "bundle 15%+ of supply: 15/15" in line and line.endswith("| supported |")
+
+
+def test_a_check_with_the_wrong_direction_is_flagged() -> None:
+    rows = pilot_rows()
+    rows += [fresh2(bad=False, minutes=5) for _ in range(15)]
+    rows += [fresh2(bad=True, minutes=90) for _ in range(15)]
+
+    assert check_line("\n".join(fresh2_lines(rows)), "H5").endswith("| opposite direction |")
+
+
+def test_the_batches_do_not_leak_into_each_other() -> None:
+    base = pilot_rows()
+    first = [fresh(bad=True, sm_wallets=0) for _ in range(10)]
+    second = [fresh2(bad=True, sm_wallets=0) for _ in range(10)]
+
+    # rows of the other fresh batch neither change the pilot threshold nor the groups
+    only_second = "\n".join(fresh2_lines(base + second))
+    both = "\n".join(fresh2_lines(base + first + second))
+    only_first = "\n".join(fresh_lines(base + first))
+    with_second = "\n".join(fresh_lines(base + first + second))
+
+    assert only_second == both
+    assert only_first == with_second
+    assert "(6.5%)" in both and "(6.5%)" in with_second
+
+
+def test_the_report_includes_the_second_section() -> None:
+    rows = pilot_rows() + [fresh2(bad=True) for _ in range(5)]
+
+    text = build_report(
+        rows, [], threshold=50, horizons=[6, 24, 72],
+        generated_at=datetime(2026, 9, 26, tzinfo=UTC), reduced_inputs="x",
+    )  # fmt: skip
+
+    assert "Second fresh batch: six pre-registered checks" in text
