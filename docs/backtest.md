@@ -44,9 +44,10 @@ horizon (+6h, +24h, +72h; configurable in `config/scoring.yaml` under `backtest:
 - **Selection.** Only tokens the screener lists that day and that reached $1M market cap.
 - **Smart-money labels** are the historical label set (Fund, Smart Trader, 90D/180D Smart Trader),
   which is not identical to the current labels.
-- **Not point-in-time by construction:** the total supply (current `token-information`) and the
-  funder lookups (`related-wallets`, first funder only, which pre-dates the first buy). Supply
-  changes after launch (burns, mints) would shift ownership shares slightly.
+- **Supply is implied, not fetched:** total supply is the decision candle's market cap divided by
+  its price. This is point-in-time and costs nothing, but it inherits whatever supply definition
+  Nansen used for the market cap. The funder lookups (`related-wallets`, first funder only, which
+  pre-dates the first buy) are the only inputs not stamped in time.
 - **Label tiers are fetched with `tier_pages` pages each**; a very busy token can have smart-money
   trades beyond that, which understates smart money (it never overstates it).
 - A trade stamped exactly at the decision time is used by the analysis and also starts the exit

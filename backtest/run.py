@@ -41,7 +41,6 @@ from backtest.results import (
 )
 
 OHLCV_CREDITS = 5
-TOKEN_INFO_CREDITS = 1
 TRADES_PAGE_CREDITS = 5
 FUNDER_LOOKUPS = 30
 
@@ -53,7 +52,7 @@ def estimate_discover(bcfg: BacktestConfig, chains: list[str]) -> int:
 def estimate_per_token(bcfg: BacktestConfig, cfg: ScoringConfig) -> tuple[int, int]:
     """(typical, worst case) credits for one analysed token."""
     tiers = len(cfg.smart_money.label_weights)
-    fixed = OHLCV_CREDITS + TOKEN_INFO_CREDITS + FUNDER_LOOKUPS
+    fixed = OHLCV_CREDITS + FUNDER_LOOKUPS
     typical = fixed + TRADES_PAGE_CREDITS * (2 + tiers + 2)
     worst = fixed + TRADES_PAGE_CREDITS * (
         bcfg.max_trade_pages + tiers * bcfg.tier_pages + bcfg.exit_trade_pages

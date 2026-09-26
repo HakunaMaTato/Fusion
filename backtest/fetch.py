@@ -10,7 +10,6 @@ from app.nansen.client import NansenClient
 from app.nansen.endpoints import (
     tgm_historical_dex_trades,
     tgm_historical_token_ohlcv,
-    tgm_token_information,
 )
 from app.nansen.models import (
     DateRange,
@@ -20,7 +19,6 @@ from app.nansen.models import (
     TGMHistoricalDexTradesFilters,
     TGMHistoricalDexTradesRequest,
     TGMHistoricalTokenOhlcvRequest,
-    TGMTokenInformationRequest,
 )
 from app.pipeline.bundle import Funder, early_buys, lookup_funder, wallets_to_look_up
 from app.pipeline.timeutil import iso_z
@@ -125,16 +123,10 @@ async def fetch_token_data(
         raise Skipped(SKIP_NEVER_REACHED)
     decision_at = decision.decision_at
 
-    info = await tgm_token_information(
-        client,
-        TGMTokenInformationRequest(
-            chain=candidate.chain, token_address=candidate.token_address, timeframe="1d"
-        ),
-    )
-    details = info.data.token_details
-    supply = (details.total_supply or details.circulating_supply) if details else None
-    if not supply:
+    # Total supply implied by the decision candle (market cap / price): point-in-time, and free.
+    if decision.reference_price <= 0:
         raise Skipped(SKIP_NO_SUPPLY)
+    supply = decision.market_cap / decision.reference_price
 
     assert_range_ends_by(decision_at, decision_at)
     raw, truncated = await pull_trades(
@@ -184,7 +176,7 @@ async def fetch_token_data(
             trades=trades,
             tiers=tiers,
             funders=funders,
-            total_supply=float(supply),
+            total_supply=supply,
         ),
         lookahead_rows_dropped=dropped,
     )

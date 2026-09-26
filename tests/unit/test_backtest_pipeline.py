@@ -18,7 +18,6 @@ from backtest.analyze import (
 )
 from backtest.fetch import (
     SKIP_NEVER_REACHED,
-    SKIP_NO_SUPPLY,
     SKIP_TRADES_TRUNCATED,
     fetch_token_data,
 )
@@ -247,7 +246,6 @@ async def test_the_data_window_is_capped_at_today_and_later_horizons_are_incompl
     ("options", "reason"),
     [
         ({"never_pumps": True}, SKIP_NEVER_REACHED),
-        ({"no_supply": True}, SKIP_NO_SUPPLY),
         ({"trades_never_end": True}, SKIP_TRADES_TRUNCATED),
     ],
 )
@@ -314,3 +312,15 @@ async def test_budget_exhaustion_propagates_to_the_runner() -> None:
             await process(client, BCFG, CFG, CANDIDATE, TODAY)
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_supply_is_implied_by_the_decision_candle_not_fetched() -> None:
+    client = ScriptedBacktest()
+    try:
+        data = await fetch_token_data(client, BCFG, CFG, CANDIDATE, TODAY)
+    finally:
+        await client.aclose()
+
+    assert data.point_in_time.total_supply == pytest.approx(1_000_000_000.0)  # 1.2M / 1.2e-3
+    assert not any(e.endswith("token-information") for e, _ in client.calls)

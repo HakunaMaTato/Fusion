@@ -62,6 +62,8 @@ rebuilt from trades instead (see `docs/backtest.md`).
 | Trades in a window | `POST /api/v1beta1/tgm/historical-dex-trades` | `chain`, `token_address`, `date_range {from,to}`, `filters.include_labels` (historical label names such as `Fund`, `Smart Trader`, `90D Smart Trader`) | rows carry **no token address** (the request already fixes it); `block_timestamp` has second resolution |
 | Price and market cap candles | `POST /api/v1beta1/tgm/historical-token-ohlcv` | `chain`, `token_address`, `timeframe` (`5m`..`1w`), `date_from`, `as_of_date` | `data[]`: `interval_start`, OHLC, `volume_usd`, `market_cap {open,high,low,close}`; `truncated` flag |
 
+Chain coverage checked live on 2026-09-26: `robinhood` works on the current endpoints (screener, tgm dex-trades, holders, smart-money dex-trades, token-information, related-wallets) but is rejected by historical OHLCV and historical trades (valid there: base, bnb, ethereum, solana; OHLCV also hyperliquid), so it cannot be backtested. Nansen returns BSC tokens as `bsc` while requests say `bnb`.
+
 Fixtures for these are hand-authored from the documented schemas, like the rest.
 
 ## Fixtures

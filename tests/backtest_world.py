@@ -13,6 +13,7 @@ LAUNCH = datetime(2026, 9, 10, 2, 0, tzinfo=UTC)
 STEP = timedelta(minutes=5)
 DECISION_AT = LAUNCH + 7 * STEP  # candle 6 is the first at $1M and closes here
 SUPPLY = 1_000_000_000.0
+PRICE_SCALE = 1e-3  # market cap 1.2M at price 1.2e-3 implies SUPPLY
 PAGE_LAST = {"page": 1, "per_page": 1000, "is_last_page": True}
 BUNDLE = [f"b{i}" for i in range(12)]
 ORGANIC = ["o0", "o1", "o2"]
@@ -40,6 +41,7 @@ def trade(wallet: str, at: datetime, action: str = "BUY", tokens: float = 1000.0
 
 
 def candle(i: int, close: float, mcap: float, low: float | None = None) -> dict[str, Any]:
+    close, low = close * PRICE_SCALE, None if low is None else low * PRICE_SCALE
     return {
         "interval_start": iso(LAUNCH + i * STEP),
         "open": close,
@@ -72,14 +74,12 @@ class ScriptedBacktest(BacktestClient):
         self,
         max_credits: int = 100_000,
         *,
-        no_supply: bool = False,
         never_pumps: bool = False,
         trades_never_end: bool = False,
         plant_future_rows: bool = True,
     ) -> None:
         super().__init__(Settings(_env_file=None), max_credits=max_credits)
         self.calls: list[tuple[str, dict[str, Any]]] = []
-        self.no_supply = no_supply
         self.never_pumps = never_pumps
         self.trades_never_end = trades_never_end
         self.plant_future_rows = plant_future_rows
@@ -95,9 +95,6 @@ class ScriptedBacktest(BacktestClient):
                 for c in data["data"]:
                     c["market_cap"]["close"] = 100_000.0
             return data
-        if endpoint == "/api/v1/tgm/token-information":
-            supply = None if self.no_supply else SUPPLY
-            return {"data": {"token_details": {"total_supply": supply}}}
         if endpoint == "/api/v1/profiler/address/related-wallets":
             wallet = body["wallet_address"]
             funder = [] if wallet in ORGANIC else [_funder_row()]
