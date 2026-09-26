@@ -1,0 +1,29 @@
+{
+  "data": {
+    "name": "Pump Token",
+    "symbol": "PUMP",
+    "contract_address": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+    "logo": "https://example.com/logo.png",
+    "token_details": {
+      "token_deployment_date": "2026-09-24T02:00:00Z",
+      "website": "https://pumptoken.example",
+      "x": "https://x.com/pumptoken",
+      "telegram": "https://t.me/pumptoken",
+      "market_cap_usd": 1450000.0,
+      "fdv_usd": 1450000.0,
+      "circulating_supply": 1000000000.0,
+      "total_supply": 1000000000.0
+    },
+    "spot_metrics": {
+      "volume_total_usd": 1200000.0,
+      "buy_volume_usd": 900000.0,
+      "sell_volume_usd": 300000.0,
+      "total_buys": 410,
+      "total_sells": 150,
+      "unique_buyers": 260,
+      "unique_sellers": 90,
+      "liquidity_usd": 210000.0,
+      "total_holders": 512
+    }
+  }
+}
