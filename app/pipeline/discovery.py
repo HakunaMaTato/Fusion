@@ -18,6 +18,7 @@ from app.nansen.models import (
     TokenScreenerRequest,
     TokenScreenerToken,
 )
+from app.pipeline.timeutil import parse_optional_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class Candidate(BaseModel):
     market_cap_usd: float
     feeds: dict[str, datetime] = Field(default_factory=dict)
     smart_wallet_count: int | None = None
+    token_deployment_date: datetime | None = None
 
     @property
     def key(self) -> TokenKey:
@@ -69,6 +71,7 @@ def filter_screener_tokens(
                 token_age_hours=token.token_age_hours,
                 market_cap_usd=token.market_cap_usd,
                 feeds={FEED_SCREENER: now},
+                token_deployment_date=parse_optional_timestamp(token.token_deployment_date),
             )
         )
     return candidates
@@ -120,6 +123,7 @@ def confirm_smart_money_tokens(
                 market_cap_usd=token.market_cap_usd,
                 feeds={FEED_SMART_MONEY: now},
                 smart_wallet_count=len(wallets),
+                token_deployment_date=parse_optional_timestamp(token.token_deployment_date),
             )
         )
     return candidates
@@ -137,6 +141,8 @@ def merge_candidates(*feeds: list[Candidate]) -> list[Candidate]:
                 previous = existing.feeds.get(name)
                 if previous is None or seen_at < previous:
                     existing.feeds[name] = seen_at
+            if existing.token_deployment_date is None:
+                existing.token_deployment_date = candidate.token_deployment_date
             if candidate.smart_wallet_count is not None:
                 existing.smart_wallet_count = candidate.smart_wallet_count
     return list(merged.values())

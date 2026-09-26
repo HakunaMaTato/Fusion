@@ -4,8 +4,6 @@ from typing import Any
 
 import pytest
 
-from app.config import Settings
-from app.nansen.client import NansenClient
 from app.pipeline.discovery import (
     FEED_SCREENER,
     FEED_SMART_MONEY,
@@ -17,7 +15,7 @@ from app.pipeline.discovery import (
     merge_candidates,
     smart_wallets_by_token,
 )
-from tests.factories import discovery_config, screener_token, smart_trade
+from tests.factories import StubClient, discovery_config, screener_token, smart_trade
 
 NOW = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 CFG = discovery_config()
@@ -152,19 +150,6 @@ def test_merge_does_not_mutate_inputs() -> None:
     assert a[0].feeds == {FEED_SCREENER: NOW}
 
 
-class _StubClient(NansenClient):
-    def __init__(self, responses: dict[str, list[dict[str, Any]]]) -> None:
-        super().__init__(Settings(nansen_mode="replay"))
-        self._responses = responses
-        self.requests: list[tuple[str, dict[str, Any]]] = []
-
-    async def post(
-        self, endpoint: str, body: dict[str, Any], *, cache_ttl_seconds: float | None = None
-    ) -> dict[str, Any]:
-        self.requests.append((endpoint, body))
-        return self._responses[endpoint].pop(0)
-
-
 def _screener_row(address: str, age_hours: float, market_cap: float) -> dict[str, Any]:
     return {
         "chain": "solana",
@@ -181,7 +166,7 @@ def _trade_row(trader: str, token: str) -> dict[str, Any]:
 
 @pytest.mark.asyncio
 async def test_fetch_feed_a_sends_day_fraction_filter_and_refilters_hours() -> None:
-    client = _StubClient(
+    client = StubClient(
         {
             "/api/v1/token-screener": [
                 {
@@ -205,7 +190,7 @@ async def test_fetch_feed_a_sends_day_fraction_filter_and_refilters_hours() -> N
 @pytest.mark.asyncio
 async def test_fetch_feed_b_confirms_with_one_batched_screener_call() -> None:
     trades = [_trade_row("w1", "tok1"), _trade_row("w2", "tok1"), _trade_row("w1", "tok2")]
-    client = _StubClient(
+    client = StubClient(
         {
             "/api/v1/smart-money/dex-trades": [{"data": trades, "pagination": PAGINATION}],
             "/api/v1/token-screener": [
@@ -227,7 +212,7 @@ async def test_fetch_feed_b_confirms_with_one_batched_screener_call() -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_feed_b_skips_screener_when_no_token_has_enough_wallets() -> None:
-    client = _StubClient(
+    client = StubClient(
         {
             "/api/v1/smart-money/dex-trades": [
                 {"data": [_trade_row("w1", "tok1")], "pagination": PAGINATION}

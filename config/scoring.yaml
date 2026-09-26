@@ -8,6 +8,8 @@ discovery:
 bundle:
   early_window_minutes: 10
   max_early_buys: 150
+  max_funder_lookups: 30
+  funder_relations: [First Funder]
   same_second_min_wallets: 3
   common_funder_min_wallets: 3
   similar_size_max_cv: 0.15
