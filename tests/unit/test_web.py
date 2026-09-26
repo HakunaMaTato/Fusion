@@ -362,6 +362,7 @@ def test_pages_carry_the_disclaimer_and_a_mobile_viewport(client: TestClient) ->
     for path in ("/", "/status", GREEN, "/nope"):
         body = client.get(path).text
         assert "Research tool, not financial advice." in body, path
+        assert 'href="https://nansen.ai/"' in body and "Nansen API" in body, path
         assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in body, path
 
 

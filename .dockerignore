@@ -5,6 +5,11 @@
 .ruff_cache/
 .pytest_cache/
 tests/
+backtest/
+scripts/
+requirements-dev.lock
+demo.db*
+Logs/
 docs/
 deploy/
 *.md

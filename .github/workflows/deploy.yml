@@ -1,0 +1,106 @@
+name: Deploy
+
+# Runs after CI succeeds on main. Builds the image, pushes it to GitHub Container Registry, then
+# updates the VM over SSH and waits for /healthz. Does nothing (and stays green) until the VM
+# secrets are configured; see docs/deploy.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      VM_HOST: ${{ secrets.VM_HOST }}
+      VM_USER: ${{ secrets.VM_USER }}
+      VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+      VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+    steps:
+      - name: Check configuration
+        id: cfg
+        run: |
+          missing=""
+          for name in VM_HOST VM_USER VM_SSH_KEY VM_KNOWN_HOSTS DEPLOY_URL; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::notice::Deploy skipped, not configured yet. Missing:$missing (see docs/deploy.md)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Log in to GitHub Container Registry
+        if: steps.cfg.outputs.ready == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image name
+        if: steps.cfg.outputs.ready == 'true'
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Build and push
+        if: steps.cfg.outputs.ready == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ env.SHA }}
+            ${{ env.IMAGE }}:latest
+
+      - name: Update the VM
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VM_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh_opts="-i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes"
+          scp $ssh_opts docker-compose.yml "$VM_USER@$VM_HOST:/opt/lp-radar/docker-compose.yml"
+          scp $ssh_opts deploy/Caddyfile deploy/caddy-entrypoint.sh "$VM_USER@$VM_HOST:/opt/lp-radar/deploy/"
+          # The VM logs in to the registry with this job's temporary token, only for the pull, and
+          # logs out again: no long-lived token is stored on the VM.
+          printf '%s' "$GH_TOKEN" | ssh $ssh_opts "$VM_USER@$VM_HOST" \
+            "cd /opt/lp-radar && export IMAGE_TAG=$SHA && docker login ghcr.io -u $GH_ACTOR --password-stdin >/dev/null && docker compose pull && docker compose up -d --remove-orphans && echo $SHA > .deployed-tag; rc=\$?; docker logout ghcr.io >/dev/null 2>&1; exit \$rc"
+
+      - name: Wait for /healthz
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 10 "$DEPLOY_URL/healthz"; then
+              echo; echo "Healthy after about $((i * 5)) seconds."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::/healthz did not become healthy. Roll back with IMAGE_TAG=<previous sha> (docs/deploy.md)."
+          ssh -i "$HOME/.ssh/deploy_key" -o StrictHostKeyChecking=yes -o BatchMode=yes "$VM_USER@$VM_HOST" \
+            "cd /opt/lp-radar && docker compose ps && docker compose logs --tail=40" || true
+          exit 1

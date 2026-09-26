@@ -1,0 +1,30 @@
+# HTTPS is automatic when DOMAIN is set (for example 34-12-56-78.sslip.io); without it Caddy serves
+# plain HTTP on port 80, which is only meant for local tests. caddy-entrypoint.sh turns DOMAIN into
+# SITE_ADDRESS, because compose passes an unset DOMAIN as an empty string and Caddy's own
+# `{$VAR:default}` fallback does not apply to an empty value.
+#
+# Everything except /healthz needs a login. The users come from DASHBOARD_USERS_B64 and are written
+# to /run/caddy/auth.caddy by caddy-entrypoint.sh, which refuses to start without any unless
+# ALLOW_NO_AUTH=1 is set.
+{
+	admin off
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	handle /healthz {
+		reverse_proxy web:8000
+	}
+
+	handle {
+		import /run/caddy/auth.caddy
+		reverse_proxy web:8000
+	}
+}
