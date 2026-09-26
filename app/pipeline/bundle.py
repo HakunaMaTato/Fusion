@@ -29,7 +29,7 @@ from app.nansen.models import (
     TGMHoldersFilters,
     TGMHoldersRequest,
 )
-from app.pipeline.timeutil import parse_timestamp
+from app.pipeline.timeutil import iso_z, parse_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -259,10 +259,6 @@ def measure_bundle(
     )
 
 
-def _iso(moment: datetime) -> str:
-    return moment.isoformat().replace("+00:00", "Z")
-
-
 async def _lookup_funder(
     client: NansenClient,
     chain: str,
@@ -321,7 +317,7 @@ async def analyze_bundle(
     trades_request = TGMDexTradesRequest(
         chain=chain,
         token_address=token_address,
-        date=DateRange.model_validate({"from": _iso(deployed_at), "to": _iso(window_end)}),
+        date=DateRange.model_validate({"from": iso_z(deployed_at), "to": iso_z(window_end)}),
         pagination=PaginationRequest(page=1, per_page=cfg.max_early_buys),
         filters=TGMDexTradesFilters(action="BUY"),
         order_by=[SortOrder(field="block_timestamp", direction="ASC")],

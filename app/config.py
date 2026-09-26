@@ -52,6 +52,8 @@ class BundleConfig(BaseModel):
 
 class SmartMoneyConfig(BaseModel):
     min_wallets_for_signal: int
+    default_label_weight: float
+    flow_window_hours: float
     label_weights: dict[str, float]
 
 

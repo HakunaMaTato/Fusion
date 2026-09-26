@@ -16,3 +16,7 @@ def parse_optional_timestamp(value: str | None) -> datetime | None:
         return parse_timestamp(value)
     except ValueError:
         return None
+
+
+def iso_z(moment: datetime) -> str:
+    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")

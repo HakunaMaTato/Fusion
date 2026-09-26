@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from app.config import BundleConfig, DiscoveryConfig, Settings
+from app.config import BundleConfig, DiscoveryConfig, Settings, SmartMoneyConfig
 from app.nansen.client import NansenClient
 from app.nansen.models import (
     ProfilerRelatedWallet,
@@ -55,11 +55,13 @@ def tgm_trade(
     tokens: float = 1000.0,
     usd: float = 100.0,
     action: str = "BUY",
+    label: str | None = None,
 ) -> TGMDexTrade:
     return TGMDexTrade(
         block_timestamp=timestamp,
         transaction_hash=f"tx-{wallet}-{timestamp}",
         trader_address=wallet,
+        trader_address_label=label,
         action=action,  # type: ignore[arg-type]
         token_address="tok",
         token_name="TOK",
@@ -139,3 +141,20 @@ def smart_trade(
         token_bought_age_days=age_days,
         token_sold_age_days=1000,
     )
+
+
+def smart_money_config(**overrides: object) -> SmartMoneyConfig:
+    values: dict[str, object] = {
+        "min_wallets_for_signal": 2,
+        "default_label_weight": 1.0,
+        "flow_window_hours": 24,
+        "label_weights": {
+            "Fund": 1.5,
+            "180D Smart Trader": 1.3,
+            "90D Smart Trader": 1.2,
+            "Smart Trader": 1.0,
+            "30D Smart Trader": 0.7,
+        },
+    }
+    values.update(overrides)
+    return SmartMoneyConfig(**values)  # type: ignore[arg-type]
