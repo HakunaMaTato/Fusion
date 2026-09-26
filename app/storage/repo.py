@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.pipeline.analyze import TokenAnalysis
@@ -17,6 +17,7 @@ from app.storage.tables import (
 )
 
 HEARTBEAT_ID = 1
+VERDICT_ORDER = {"GREEN": 0, "WATCH": 1, "AVOID": 2}
 
 
 def find_token(session: Session, chain: str, token_address: str) -> TokenRow | None:
@@ -152,3 +153,65 @@ def beat(session: Session, now: datetime) -> None:
 def last_beat(session: Session) -> datetime | None:
     row = session.get(HeartbeatRow, HEARTBEAT_ID)
     return row.beat_at if row is not None else None
+
+
+def record_discovery(session: Session, now: datetime) -> None:
+    row = session.get(HeartbeatRow, HEARTBEAT_ID)
+    if row is None:
+        session.add(HeartbeatRow(id=HEARTBEAT_ID, beat_at=now, last_discovery_at=now))
+    else:
+        row.last_discovery_at = now
+    session.commit()
+
+
+def last_discovery_at(session: Session) -> datetime | None:
+    row = session.get(HeartbeatRow, HEARTBEAT_ID)
+    return row.last_discovery_at if row is not None else None
+
+
+def last_analysis_at(session: Session) -> datetime | None:
+    return session.scalar(select(func.max(SnapshotRow.created_at)))
+
+
+def list_tokens(
+    session: Session,
+    *,
+    verdict: str | None = None,
+    chain: str | None = None,
+    updated_since: datetime | None = None,
+    limit: int = 200,
+) -> list[tuple[TokenRow, SnapshotRow]]:
+    """Each token with its latest snapshot: GREEN first, then WATCH, then AVOID, by score.
+
+    `updated_since` hides tokens whose latest snapshot is older, so stale verdicts drop off.
+    """
+    latest = select(func.max(SnapshotRow.id)).group_by(SnapshotRow.token_id).scalar_subquery()
+    stmt = (
+        select(TokenRow, SnapshotRow)
+        .join(SnapshotRow, SnapshotRow.token_id == TokenRow.id)
+        .where(SnapshotRow.id.in_(latest))
+    )
+    if verdict is not None:
+        stmt = stmt.where(SnapshotRow.verdict == verdict)
+    if chain is not None:
+        stmt = stmt.where(TokenRow.chain == chain)
+    if updated_since is not None:
+        stmt = stmt.where(SnapshotRow.created_at >= updated_since)
+    rows = [(token, snapshot) for token, snapshot in session.execute(stmt)]
+    rows.sort(key=lambda pair: (VERDICT_ORDER.get(pair[1].verdict, 3), -pair[1].score))
+    return rows[:limit]
+
+
+def list_chains(session: Session) -> list[str]:
+    return list(session.scalars(select(TokenRow.chain).distinct().order_by(TokenRow.chain)))
+
+
+def snapshot_history(session: Session, token_id: int, limit: int = 200) -> list[SnapshotRow]:
+    """The newest `limit` snapshots, oldest first."""
+    newest = session.scalars(
+        select(SnapshotRow)
+        .where(SnapshotRow.token_id == token_id)
+        .order_by(SnapshotRow.created_at.desc(), SnapshotRow.id.desc())
+        .limit(limit)
+    ).all()
+    return list(reversed(newest))

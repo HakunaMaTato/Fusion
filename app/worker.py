@@ -161,6 +161,9 @@ class Worker:
             except Exception as exc:
                 self._note_outage(now, exc, "smart money feed")
                 return
+        if found:
+            with self._sessions() as session:
+                repo.record_discovery(session, now)
         with self._sessions() as session:
             for candidate in merge_candidates(*found):
                 if candidate.key in self._pending:

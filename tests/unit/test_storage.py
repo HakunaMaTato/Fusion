@@ -215,3 +215,98 @@ async def test_analyze_token_requires_a_deployment_date() -> None:
             await analyze_token(client, load_scoring_config(), candidate(deployed=None), NOW)
     finally:
         await client.aclose()
+
+
+def _add(session: Session, address: str, verdict: str, score: float, chain: str = "solana") -> None:
+    cand = candidate(address)
+    cand = cand.model_copy(update={"chain": chain})
+    token = repo.upsert_token(session, cand, NOW)
+    result = analysis(cand, verdict)
+    result.score.score = score
+    repo.save_snapshot(session, token, result)
+
+
+def test_list_tokens_orders_green_first_then_by_score(session: Session) -> None:
+    _add(session, "a", "AVOID", 30)
+    _add(session, "b", "GREEN", 75)
+    _add(session, "c", "WATCH", 45)
+    _add(session, "d", "GREEN", 90)
+    _add(session, "e", "WATCH", 60)
+
+    rows = repo.list_tokens(session)
+
+    assert [t.token_address for t, _ in rows] == ["d", "b", "e", "c", "a"]
+
+
+def test_list_tokens_uses_only_the_latest_snapshot_and_filters(session: Session) -> None:
+    cand = candidate("x")
+    token = repo.upsert_token(session, cand, NOW)
+    repo.save_snapshot(session, token, analysis(cand, "GREEN", NOW))
+    repo.save_snapshot(session, token, analysis(cand, "AVOID", NOW + timedelta(minutes=5)))
+    _add(session, "y", "WATCH", 50, chain="base")
+
+    assert [(t.token_address, s.verdict) for t, s in repo.list_tokens(session)] == [
+        ("y", "WATCH"),
+        ("x", "AVOID"),
+    ]
+    assert [t.token_address for t, _ in repo.list_tokens(session, verdict="AVOID")] == ["x"]
+    assert repo.list_tokens(session, verdict="GREEN") == []
+    assert [t.token_address for t, _ in repo.list_tokens(session, chain="base")] == ["y"]
+    assert repo.list_chains(session) == ["base", "solana"]
+
+
+def test_list_tokens_respects_the_limit(session: Session) -> None:
+    for i in range(5):
+        _add(session, f"t{i}", "WATCH", 50 + i)
+
+    assert [t.token_address for t, _ in repo.list_tokens(session, limit=2)] == ["t4", "t3"]
+
+
+def test_tokens_without_a_snapshot_are_not_listed(session: Session) -> None:
+    repo.upsert_token(session, candidate("bare"), NOW)
+
+    assert repo.list_tokens(session) == []
+
+
+def test_snapshot_history_is_the_newest_n_oldest_first(session: Session) -> None:
+    cand = candidate()
+    token = repo.upsert_token(session, cand, NOW)
+    for minutes in range(5):
+        repo.save_snapshot(
+            session, token, analysis(cand, "WATCH", NOW + timedelta(minutes=minutes))
+        )
+
+    history = repo.snapshot_history(session, token.id, limit=3)
+
+    assert [s.created_at for s in history] == [NOW + timedelta(minutes=m) for m in (2, 3, 4)]
+
+
+def test_last_discovery_and_analysis_times(session: Session) -> None:
+    assert repo.last_discovery_at(session) is None
+    assert repo.last_analysis_at(session) is None
+
+    repo.record_discovery(session, NOW)  # creates the row before any heartbeat
+    repo.beat(session, NOW + timedelta(seconds=5))
+    cand = candidate()
+    repo.save_snapshot(session, repo.upsert_token(session, cand, NOW), analysis(cand, "GREEN", NOW))
+
+    assert repo.last_discovery_at(session) == NOW
+    assert repo.last_beat(session) == NOW + timedelta(seconds=5)
+    assert repo.last_analysis_at(session) == NOW
+
+
+def test_list_tokens_hides_stale_snapshots(session: Session) -> None:
+    old, fresh = candidate("old"), candidate("fresh")
+    repo.save_snapshot(
+        session,
+        repo.upsert_token(session, old, NOW),
+        analysis(old, "GREEN", NOW - timedelta(hours=30)),
+    )
+    repo.save_snapshot(
+        session, repo.upsert_token(session, fresh, NOW), analysis(fresh, "GREEN", NOW)
+    )
+
+    rows = repo.list_tokens(session, updated_since=NOW - timedelta(hours=24))
+
+    assert [t.token_address for t, _ in rows] == ["fresh"]
+    assert len(repo.list_tokens(session)) == 2

@@ -446,3 +446,34 @@ def test_smart_wallets_are_the_distinct_buyers() -> None:
     result = metrics([buy("w1", 1), buy("w2", 2), sell("w3", 3), buy("w1", 4)])
 
     assert result.smart_wallets == frozenset({"w1", "w2"})
+
+
+def test_wallet_summaries_show_tier_flow_and_holding() -> None:
+    trades = [
+        buy("w1", 1, usd=500.0),
+        buy("w2", 2, usd=900.0),
+        sell("w2", 30, usd=1200.0),
+        sell("w9", 40, usd=50.0),
+    ]
+
+    result = metrics(trades, tiers_by_wallet={"w1": frozenset({"Fund"})})
+
+    assert [w.address for w in result.wallets] == [
+        "w2",
+        "w1",
+    ]  # by bought USD; sell-only w9 excluded
+    w2, w1 = result.wallets
+    assert (w1.tier, w1.bought_usd, w1.sold_usd, w1.still_holding) == ("Fund", 500.0, 0.0, True)
+    assert (w2.tier, w2.bought_usd, w2.sold_usd, w2.still_holding) == (
+        OTHER_LABEL,
+        900.0,
+        1200.0,
+        False,
+    )
+
+
+def test_wallet_summaries_are_capped() -> None:
+    result = metrics([buy(f"w{i}", 1, usd=float(i)) for i in range(80)])
+
+    assert len(result.wallets) == 50
+    assert result.wallet_count == 80

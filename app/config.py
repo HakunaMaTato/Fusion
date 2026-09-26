@@ -119,8 +119,11 @@ def get_settings() -> Settings:
     return Settings()
 
 
+DEFAULT_SCORING_PATH = Path(__file__).resolve().parents[1] / "config" / "scoring.yaml"
+
+
 @lru_cache
-def load_scoring_config(path: Path = Path("config/scoring.yaml")) -> ScoringConfig:
+def load_scoring_config(path: Path = DEFAULT_SCORING_PATH) -> ScoringConfig:
     with path.open() as f:
         raw = yaml.safe_load(f)
     return ScoringConfig.model_validate(raw)

@@ -1,0 +1,37 @@
+{% if unavailable %}
+<p class="empty">No data yet. The worker has not produced any results, or the data is temporarily unavailable.</p>
+{% elif rows %}
+<table class="tokens">
+  <thead>
+    <tr>
+      <th scope="col">Token</th>
+      <th scope="col">Age</th>
+      <th scope="col" class="num">Market cap</th>
+      <th scope="col">Verdict</th>
+      <th scope="col" class="num">Score</th>
+      <th scope="col" class="num">Bundle</th>
+      <th scope="col" class="num">Smart wallets</th>
+      <th scope="col">Updated</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td data-label="Token">
+        <a class="token-link" href="/token/{{ r.chain|urlencode }}/{{ r.address|urlencode }}">{{ r.symbol }}</a>
+        <span class="muted">{{ r.chain }}</span>
+      </td>
+      <td data-label="Age">{{ r.age_hours|age }}</td>
+      <td data-label="Market cap" class="num">{{ r.market_cap_usd|money }}</td>
+      <td data-label="Verdict"><span class="badge {{ r.verdict_class }}">{{ r.verdict }}</span></td>
+      <td data-label="Score" class="num">{{ "%.0f"|format(r.score) }}</td>
+      <td data-label="Bundle" class="num">{{ r.bundle_supply_pct|percent }}</td>
+      <td data-label="Smart wallets" class="num">{{ r.sm_wallets }}</td>
+      <td data-label="Updated">{{ r.updated_at|ago(now) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">No tokens match. Either nothing has been analysed yet or the filters are too narrow.</p>
+{% endif %}

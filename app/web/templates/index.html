@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set active = "tokens" %}
+{% block title %}Fresh tokens - LP Radar{% endblock %}
+{% block content %}
+<h1>Fresh tokens</h1>
+<p class="lede">Newly launched tokens that pumped, rated as liquidity-provision candidates. The table refreshes every 30 seconds.</p>
+
+<div class="filters" role="group" aria-label="Filters">
+  <div class="filter-row">
+    <span class="filter-label">Verdict</span>
+    <a class="chip" href="/{% if chain %}?chain={{ chain|urlencode }}{% endif %}" {% if not verdict %}aria-current="true"{% endif %}>All</a>
+    {% for v in verdicts %}
+    <a class="chip" href="/?verdict={{ v }}{% if chain %}&amp;chain={{ chain|urlencode }}{% endif %}" {% if verdict == v %}aria-current="true"{% endif %}>{{ v }}</a>
+    {% endfor %}
+  </div>
+  {% if chains %}
+  <div class="filter-row">
+    <span class="filter-label">Chain</span>
+    <a class="chip" href="/{% if verdict %}?verdict={{ verdict }}{% endif %}" {% if not chain %}aria-current="true"{% endif %}>All</a>
+    {% for c in chains %}
+    <a class="chip" href="/?chain={{ c|urlencode }}{% if verdict %}&amp;verdict={{ verdict }}{% endif %}" {% if chain == c %}aria-current="true"{% endif %}>{{ c }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<div id="tokens" hx-get="{{ partial_url }}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "_tokens_table.html" %}
+</div>
+{% endblock %}

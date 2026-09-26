@@ -111,6 +111,7 @@ async def test_first_tick_analyses_stores_and_alerts_once(tmp_path: Path) -> Non
     assert "GREEN" in env.notifier.messages[0]
     with env.factory() as session:
         assert repo.last_beat(session) == START
+        assert repo.last_discovery_at(session) == START
         assert repo.get_credits_used(session, START.date()) == env.client.credits_used_today
 
 
