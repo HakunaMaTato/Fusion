@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import json
 import sys
+from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 
@@ -105,7 +106,8 @@ async def run_discover(
     CANDIDATES_PATH.write_text(
         json.dumps([c.model_dump(mode="json") for c in candidates], indent=1), encoding="utf-8"
     )
-    per_chain = {chain: sum(1 for c in candidates if c.chain == chain) for chain in chains}
+    # Nansen names some chains differently from the request (asked for "bnb", returns "bsc").
+    per_chain = dict(Counter(c.chain for c in candidates))
     print(f"Found {len(candidates)} candidate tokens: {per_chain}")
     print_summary(client)
     await client.aclose()
@@ -162,6 +164,9 @@ def main(
     analyze.add_argument("--max-credits", type=int, required=True)
     sub.add_parser("report", help="write docs/backtest.md from the stored results")
     args = parser.parse_args(argv)
+    # Token symbols can hold any character; a legacy Windows console must not crash on them.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
 
     cfg = load_scoring_config()
     bcfg = cfg.backtest
