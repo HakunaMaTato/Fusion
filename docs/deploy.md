@@ -147,19 +147,32 @@ not keep a token on the VM, build on the VM instead (section 6).
 
 ## 6. First bring-up from source (before anything is merged)
 
-Useful to prove the stack on the real VM before the pull requests are merged. From the repository
-root, copy the files the image needs and build on the VM:
+Useful to prove the stack on the real VM before the pull requests are merged, and it needs no
+GitHub token on the VM. The bucket from section 8 doubles as a hand-over point (the VM's service
+account can read it). From the repository root, pack the files the image needs and upload them:
 
 ```bash
-gcloud compute scp --recurse app config requirements.lock Dockerfile docker-compose.yml lp-radar:/tmp/lp-radar-src --zone=$ZONE --project=$PROJECT
+git archive --format=tar.gz -o lp-radar-src.tgz HEAD app config requirements.lock Dockerfile docker-compose.yml .dockerignore deploy/Caddyfile deploy/caddy-entrypoint.sh
 ```
 
 ```bash
-gcloud compute ssh lp-radar --zone=$ZONE --project=$PROJECT --command "sudo -u deploy bash -c 'cp -r /tmp/lp-radar-src/. /opt/lp-radar/ && cd /opt/lp-radar && docker compose up -d --build'"
+gcloud storage cp lp-radar-src.tgz gs://$PROJECT-lp-radar-backups/src/lp-radar-src.tgz --project=$PROJECT
 ```
 
-(`deploy/Caddyfile` and `deploy/caddy-entrypoint.sh` must be in `/opt/lp-radar/deploy/` too: copy
-them the same way.)
+(`gcloud compute scp` is not used: on Windows its PuTTY helper fails, and data piped into
+`gcloud compute ssh` is dropped.) On the VM, download it with the VM's own token, unpack it as the
+deploy user and start the stack:
+
+```bash
+gcloud compute ssh lp-radar --zone=$ZONE --project=$PROJECT --command "T=\$(curl -fsS -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token | jq -r .access_token); curl -fsS -H \"Authorization: Bearer \$T\" 'https://storage.googleapis.com/storage/v1/b/$PROJECT-lp-radar-backups/o/src%2Flp-radar-src.tgz?alt=media' -o /tmp/src.tgz && chmod 644 /tmp/src.tgz && sudo -u deploy tar -xzf /tmp/src.tgz -C /opt/lp-radar"
+```
+
+```bash
+gcloud compute ssh lp-radar --zone=$ZONE --project=$PROJECT --command "sudo -u deploy bash -c 'cd /opt/lp-radar && docker compose up -d --build'"
+```
+
+This builds the image on the VM (about two minutes on an `e2-small`). Certificates are issued on
+the first request, so `/healthz` answers over HTTPS within about half a minute.
 
 ## 7. Continuous deploy
 
@@ -223,6 +236,15 @@ Test once by hand: `sudo -u deploy BACKUP_BUCKET=... /opt/lp-radar/backup.sh`, t
 **Restore:** download a `.db.gz`, `gunzip` it, stop the stack (`docker compose stop web worker`), copy
 the file to `/data/lp-radar.db` in the `data` volume (`docker compose cp file web:/data/lp-radar.db`
 after starting `web` only), then `docker compose up -d`.
+
+## 8b. Network exposure
+
+A new project's `default` network comes with rules that allow SSH (22) and RDP (3389) from anywhere.
+The dashboard only needs 80 and 443. RDP is not used by a Linux VM and can be deleted; SSH is
+key-only, but you can restrict it to your own IP or to Google's IAP range (`35.235.240.0/20`) with
+`gcloud compute firewall-rules update default-allow-ssh --source-ranges=<range> --project=$PROJECT`.
+GitHub Actions connects over SSH from changing addresses, so keep SSH open (key-only) if you use
+the automatic deploy.
 
 ## 9. Checks after a deploy
 
