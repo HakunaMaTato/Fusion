@@ -17,6 +17,8 @@ from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 
+import httpx
+
 from app.config import BacktestConfig, ScoringConfig, Settings, get_settings, load_scoring_config
 from app.nansen.exceptions import BudgetExceeded, NansenError
 from backtest.client import BacktestClient
@@ -132,7 +134,7 @@ async def run_analyze(
             except BudgetExceeded:
                 print("Stopped: the credit cap was reached.")
                 break
-            except NansenError as exc:
+            except (NansenError, httpx.TransportError) as exc:
                 print(f"Skipping {candidate.chain}/{candidate.token_address}: {type(exc).__name__}")
                 continue
             append_jsonl(RESULTS_PATH if isinstance(outcome, ResultRow) else SKIPS_PATH, outcome)

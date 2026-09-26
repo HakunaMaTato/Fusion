@@ -356,3 +356,38 @@ def test_declining_the_confirmation_aborts_before_any_call(
 def test_confirm_accepts_only_yes() -> None:
     assert run_module.confirm("x", lambda _: " Y ") is True
     assert run_module.confirm("x", lambda _: "yes please") is False
+
+
+@pytest.mark.asyncio
+async def test_a_network_timeout_skips_the_token_without_recording_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    candidates = [
+        HistCandidate(chain="solana", token_address=f"t{i}", symbol=f"S{i}", day=date(2026, 9, 1))
+        for i in range(2)
+    ]
+    seen: list[str] = []
+
+    async def flaky(client, bcfg, cfg, candidate, today):  # type: ignore[no-untyped-def]
+        seen.append(candidate.token_address)
+        if len(seen) == 1:
+            raise httpx.ReadTimeout("slow")
+        return SkipRow(chain=candidate.chain, token_address=candidate.token_address, reason="x")
+
+    monkeypatch.setattr(run_module, "load_candidates", lambda: candidates)
+    monkeypatch.setattr(run_module, "load_results", lambda: [])
+    monkeypatch.setattr(run_module, "load_skips", lambda: [])
+    monkeypatch.setattr(run_module, "process", flaky)
+    monkeypatch.setattr(run_module, "SKIPS_PATH", tmp_path / "skips.jsonl")
+    monkeypatch.setattr(run_module, "RESULTS_PATH", tmp_path / "results.jsonl")
+    monkeypatch.setattr(
+        run_module,
+        "BacktestClient",
+        lambda s, max_credits: BacktestClient(s, max_credits=max_credits, cache_dir=tmp_path),
+    )
+
+    await run_module.run_analyze(_settings(), BCFG, CFG, 5, 100, date(2026, 9, 26))
+
+    assert len(seen) == 2  # the run went on after the timeout
+    assert len(load_skips(tmp_path / "skips.jsonl")) == 1  # only the second token was recorded
+    assert "Skipping" in capsys.readouterr().out

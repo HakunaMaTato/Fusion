@@ -24,6 +24,7 @@ COSTS = {
     "/api/v1/profiler/address/related-wallets": 1,
     "/api/v1/tgm/token-information": 1,
 }
+HISTORICAL_TIMEOUT_SECONDS = 90.0  # the historical endpoints are much slower than the live ones
 UNKNOWN_ENDPOINT_COST = 25  # assume the dearest tier for an endpoint not in the table
 
 
@@ -33,7 +34,8 @@ class BacktestClient(NansenClient):
     ) -> None:
         # The daily budget is replaced by the run cap below; the base guard must never trip first.
         super().__init__(
-            settings.model_copy(update={"daily_credit_budget": 10**9, "nansen_mode": "live"})
+            settings.model_copy(update={"daily_credit_budget": 10**9, "nansen_mode": "live"}),
+            timeout_seconds=HISTORICAL_TIMEOUT_SECONDS,
         )
         self.cache_dir = cache_dir
         self.max_credits = max_credits
