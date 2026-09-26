@@ -74,6 +74,9 @@ jobs:
 
       - name: Update the VM
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/deploy_key
@@ -82,8 +85,10 @@ jobs:
           ssh_opts="-i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes"
           scp $ssh_opts docker-compose.yml "$VM_USER@$VM_HOST:/opt/lp-radar/docker-compose.yml"
           scp $ssh_opts deploy/Caddyfile deploy/caddy-entrypoint.sh "$VM_USER@$VM_HOST:/opt/lp-radar/deploy/"
-          ssh $ssh_opts "$VM_USER@$VM_HOST" \
-            "cd /opt/lp-radar && export IMAGE_TAG=$SHA && docker compose pull && docker compose up -d --remove-orphans && echo $SHA > .deployed-tag"
+          # The VM logs in to the registry with this job's temporary token, only for the pull, and
+          # logs out again: no long-lived token is stored on the VM.
+          printf '%s' "$GH_TOKEN" | ssh $ssh_opts "$VM_USER@$VM_HOST" \
+            "cd /opt/lp-radar && export IMAGE_TAG=$SHA && docker login ghcr.io -u $GH_ACTOR --password-stdin >/dev/null && docker compose pull && docker compose up -d --remove-orphans && echo $SHA > .deployed-tag; rc=\$?; docker logout ghcr.io >/dev/null 2>&1; exit \$rc"
 
       - name: Wait for /healthz
         if: steps.cfg.outputs.ready == 'true'

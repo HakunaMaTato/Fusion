@@ -135,15 +135,10 @@ Everything except `/healthz` needs a login. `/healthz` shows only `ok` or a shor
 
 ## 5. Let the VM pull the image
 
-The repository is private, so its container image is private too. Create a GitHub personal access
-token (classic) with only the `read:packages` scope, and log in once as the deploy user:
-
-```bash
-sudo -u deploy docker login ghcr.io -u <your-github-username>
-```
-
-Paste the token when asked (it is stored in `~deploy/.docker/config.json`). If you would rather
-not keep a token on the VM, build on the VM instead (section 6).
+The repository is private, so its container image is private too. The automatic deploy needs no
+token on the VM: the workflow logs the VM in to the registry with the job's own temporary token,
+pulls, and logs out again. To pull by hand on the VM you would need a personal access token
+(classic) with only `read:packages`; the simpler alternative is to build on the VM (section 6).
 
 ## 6. First bring-up from source (before anything is merged)
 
