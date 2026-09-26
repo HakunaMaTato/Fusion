@@ -3,7 +3,8 @@ discovery:
   pump_window_hours: 4
   min_market_cap_usd: 1000000
   screener_timeframe: 1h
-  poll_seconds: 90
+  poll_seconds: 120
+  smart_money_poll_seconds: 900
 bundle:
   early_window_minutes: 10
   max_early_buys: 150
