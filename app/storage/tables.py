@@ -112,3 +112,4 @@ class HeartbeatRow(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     beat_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    last_discovery_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

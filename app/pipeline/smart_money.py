@@ -23,8 +23,17 @@ from app.pipeline.timeutil import iso_z, parse_timestamp
 logger = logging.getLogger(__name__)
 
 OTHER_LABEL = "other"
+MAX_WALLET_ROWS = 50
 TRADES_PER_PAGE = 1000
 MAX_TRADE_PAGES = 5
+
+
+class SmartWalletSummary(BaseModel):
+    address: str
+    tier: str
+    bought_usd: float
+    sold_usd: float
+    still_holding: bool
 
 
 class SmartMoneyMetrics(BaseModel):
@@ -43,6 +52,7 @@ class SmartMoneyMetrics(BaseModel):
     market_cap_at_entry: float | None
     smart_wallets: frozenset[str] = frozenset()
     total_holders: int | None = None
+    wallets: list[SmartWalletSummary] = []
 
 
 def match_label(label: str | None, cfg: SmartMoneyConfig) -> str | None:
@@ -83,6 +93,8 @@ def compute_smart_money_metrics(
 
     labels_by_wallet: dict[str, list[str | None]] = defaultdict(list)
     net_tokens: dict[str, float] = defaultdict(float)
+    bought_usd: dict[str, float] = defaultdict(float)
+    sold_usd: dict[str, float] = defaultdict(float)
     buyers: set[str] = set()
     bought = sold = 0.0
     net_flow = 0.0
@@ -97,16 +109,31 @@ def compute_smart_money_metrics(
         else:
             sold += trade.token_amount
         net_tokens[trade.trader_address] += signed * trade.token_amount
+        if trade.action == "BUY":
+            bought_usd[trade.trader_address] += trade.estimated_value_usd
+        else:
+            sold_usd[trade.trader_address] += trade.estimated_value_usd
         if flow_start <= moment <= now:
             net_flow += signed * trade.estimated_value_usd
 
     label_counts: dict[str, int] = defaultdict(int)
     weighted_score = 0.0
+    summaries: list[SmartWalletSummary] = []
     for wallet in buyers:
         tiers = (tiers_by_wallet or {}).get(wallet, frozenset())
         label, weight = wallet_label_and_weight(labels_by_wallet[wallet], cfg, tiers)
         label_counts[label] += 1
         weighted_score += weight
+        summaries.append(
+            SmartWalletSummary(
+                address=wallet,
+                tier=label,
+                bought_usd=bought_usd[wallet],
+                sold_usd=sold_usd[wallet],
+                still_holding=net_tokens[wallet] > 0,
+            )
+        )
+    summaries.sort(key=lambda w: (-w.bought_usd, w.address))
 
     first_entry_at: datetime | None = None
     minutes_after_launch: float | None = None
@@ -137,6 +164,7 @@ def compute_smart_money_metrics(
         market_cap_at_entry=market_cap_at_entry,
         smart_wallets=frozenset(buyers),
         total_holders=total_holders,
+        wallets=summaries[:MAX_WALLET_ROWS],
     )
 
 

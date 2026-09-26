@@ -22,4 +22,6 @@ make worker      # polling worker (writes the SQLite database the web app reads)
 make soak        # ten real minutes of the worker against a scripted Nansen (slow)
 ```
 
+Dashboard: `/` (tokens), `/token/{chain}/{address}`, `/status`; see `docs/dashboard.md` (demo data: `python scripts/seed_demo.py <db-url>`).
+
 `/healthz` reports 503 when the worker heartbeat is stale. See `docs/worker.md` for the loop, credit pacing and alerts.
