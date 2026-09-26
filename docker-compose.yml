@@ -1,0 +1,51 @@
+# web, worker and caddy run from one image; SQLite lives on the `data` volume shared by web and worker.
+# The `.env` file next to this one is used for interpolation and passed to web and worker.
+name: lp-radar
+
+x-app: &app
+  image: ${IMAGE:-ghcr.io/hakunamatato/fusion}:${IMAGE_TAG:-latest}
+  build: .
+  env_file: .env
+  volumes:
+    - data:/data
+  restart: unless-stopped
+
+services:
+  web:
+    <<: *app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-server-header"]
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    # The image's HEALTHCHECK probes port 8000, which the worker does not serve. Its health is
+    # what the web /healthz reports (worker heartbeat).
+    healthcheck:
+      disable: true
+    depends_on:
+      - web
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-}
+      DASHBOARD_USERS_B64: ${DASHBOARD_USERS_B64:-}
+      ALLOW_NO_AUTH: ${ALLOW_NO_AUTH:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy-entrypoint.sh:/usr/local/bin/caddy-entrypoint.sh:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    entrypoint: ["/bin/sh", "/usr/local/bin/caddy-entrypoint.sh"]
+    depends_on:
+      - web
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

@@ -55,6 +55,12 @@ def test_explorer_urls() -> None:
     assert wallet_explorer_url("solana", sol) == f"https://solscan.io/account/{sol}"
     assert token_explorer_url("base", evm) == f"https://basescan.org/token/{evm}"
     assert wallet_explorer_url("bnb", evm) == f"https://bscscan.com/address/{evm}"
+    assert wallet_explorer_url("robinhood", evm) == (
+        f"https://robinhoodchain.blockscout.com/address/{evm}"
+    )
+    assert token_explorer_url("robinhood", evm) == (
+        f"https://robinhoodchain.blockscout.com/token/{evm}"
+    )
     assert token_explorer_url("ethereum", evm) == f"https://etherscan.io/token/{evm}"
 
 

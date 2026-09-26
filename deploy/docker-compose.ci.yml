@@ -1,0 +1,10 @@
+# Used only by the CI smoke test (deploy/smoke.sh): gives the replay-mode worker the recorded
+# fixtures, which are not part of the production image. Relative paths in an extra compose file
+# are resolved against the directory of the first file, the repository root.
+services:
+  web:
+    volumes:
+      - ./tests/fixtures:/srv/tests/fixtures:ro
+  worker:
+    volumes:
+      - ./tests/fixtures:/srv/tests/fixtures:ro
