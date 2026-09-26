@@ -218,7 +218,7 @@ def main(
         "--before", type=date.fromisoformat, help="only candidates whose day is before this date"
     )
     sub.add_parser("rescore", help="re-run stored tokens from the cache; spends nothing")
-    sub.add_parser("report", help="write docs/backtest.md from the stored results")
+    sub.add_parser("report", help="write docs/backtest-results.md from the stored results")
     args = parser.parse_args(argv)
     # Token symbols can hold any character; a legacy Windows console must not crash on them.
     if hasattr(sys.stdout, "reconfigure"):
@@ -248,7 +248,7 @@ def main(
 
     if args.command == "report":
         main_report(bcfg.dump_threshold_pct, bcfg.horizons_hours)
-        print("Wrote docs/backtest.md and docs/backtest.svg")
+        print("Wrote docs/backtest-results.md and docs/backtest-results.svg")
         return 0
 
     if not require_live(settings):

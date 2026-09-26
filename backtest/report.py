@@ -1,4 +1,4 @@
-"""Turn backtest results into docs/backtest.md and a chart. Statistics only: no raw Nansen data."""
+"""Turn backtest results into docs/backtest-results.md and a chart. Statistics only: no raw Nansen data."""
 
 import math
 import statistics
@@ -23,8 +23,8 @@ from backtest.lifecycle import (
 from backtest.results import OutcomeRow, ResultRow, SkipRow, load_results, load_skips
 
 DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
-REPORT_PATH = DOCS_DIR / "backtest.md"
-CHART_PATH = DOCS_DIR / "backtest.svg"
+REPORT_PATH = DOCS_DIR / "backtest-results.md"
+CHART_PATH = DOCS_DIR / "backtest-results.svg"
 VERDICTS = ("GREEN", "WATCH", "AVOID")
 
 
@@ -411,7 +411,7 @@ def build_report(
         "",
         headline(rows, 24, threshold),
         "",
-        "![Dump rate by verdict](backtest.svg)",
+        "![Dump rate by verdict](backtest-results.svg)",
         "",
         *fresh_lines(rows),
         *lifecycle_lines(rows, cal),
