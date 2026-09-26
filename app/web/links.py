@@ -10,6 +10,7 @@ _EVM_EXPLORERS = {
     "ethereum": "https://etherscan.io",
     "base": "https://basescan.org",
     "bnb": "https://bscscan.com",
+    "bsc": "https://bscscan.com",  # the name Nansen returns for BNB Chain tokens
     "robinhood": "https://robinhoodchain.blockscout.com",  # mainnet, per docs.robinhood.com
 }
 _SOLANA_EXPLORER = "https://solscan.io"
