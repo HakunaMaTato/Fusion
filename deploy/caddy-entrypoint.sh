@@ -32,4 +32,8 @@ else
 	exit 1
 fi
 
+SITE_ADDRESS="${DOMAIN:-}"
+[ -n "$SITE_ADDRESS" ] || SITE_ADDRESS=":80"
+export SITE_ADDRESS
+
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

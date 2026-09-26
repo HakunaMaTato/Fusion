@@ -52,7 +52,7 @@ jobs:
         run: |
           printf 'NANSEN_API_KEY=x\n' > .env
           docker compose -f docker-compose.yml -f deploy/docker-compose.ci.yml config -q
-          docker run --rm -e ALLOW_NO_AUTH=1 -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+          docker run --rm -e SITE_ADDRESS=:80 -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
             --entrypoint sh caddy:2 -c 'mkdir -p /run/caddy && : > /run/caddy/auth.caddy && caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile'
           rm .env
 
