@@ -178,3 +178,33 @@ def test_rows_stored_before_batches_existed_count_as_pilot() -> None:
     old_json = row("GREEN", False).model_dump_json(exclude={"batch"})
 
     assert ResultRow.model_validate_json(old_json).batch == "pilot"
+
+
+@pytest.mark.asyncio
+async def test_analyze_can_be_limited_to_candidates_before_a_date(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    seen: list[str] = []
+
+    async def fake_process(client, bcfg, cfg, candidate, today):  # type: ignore[no-untyped-def]
+        seen.append(candidate.token_address)
+        return row("GREEN", False).model_copy(update={"token_address": candidate.token_address})
+
+    candidates = [cand("early", date(2026, 9, 9)), cand("late", date(2026, 9, 10))]
+    monkeypatch.setattr(run_module, "load_candidates", lambda: candidates)
+    monkeypatch.setattr(run_module, "load_results", lambda: [])
+    monkeypatch.setattr(run_module, "load_skips", lambda: [])
+    monkeypatch.setattr(run_module, "process", fake_process)
+    monkeypatch.setattr(run_module, "RESULTS_PATH", tmp_path / "r.jsonl")
+    monkeypatch.setattr(
+        run_module,
+        "BacktestClient",
+        lambda s, max_credits: BacktestClient(s, max_credits=max_credits, cache_dir=tmp_path),
+    )
+    settings = Settings(_env_file=None, nansen_api_key="k")  # type: ignore[call-arg]
+
+    await run_module.run_analyze(
+        settings, CFG.backtest, CFG, 5, 100, date(2026, 9, 26), "fresh", date(2026, 9, 10)
+    )
+
+    assert seen == ["early"]

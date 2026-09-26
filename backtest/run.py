@@ -161,11 +161,13 @@ async def run_analyze(
     max_credits: int,
     today: date,
     batch: str = "pilot",
+    before: date | None = None,
 ) -> None:
     done = {(r.chain, r.token_address) for r in load_results()} | {
         (s.chain, s.token_address) for s in load_skips()
     }
-    todo = [c for c in sample_order(load_candidates()) if c.key not in done][:limit]
+    pool = [c for c in load_candidates() if before is None or c.day < before]
+    todo = [c for c in sample_order(pool) if c.key not in done][:limit]
     client = BacktestClient(settings, max_credits=max_credits)
     try:
         for candidate in todo:
@@ -211,6 +213,9 @@ def main(
     analyze.add_argument("--max-credits", type=int, required=True)
     analyze.add_argument(
         "--batch", default="pilot", help='label stored with each result, e.g. "fresh"'
+    )
+    analyze.add_argument(
+        "--before", type=date.fromisoformat, help="only candidates whose day is before this date"
     )
     sub.add_parser("rescore", help="re-run stored tokens from the cache; spends nothing")
     sub.add_parser("report", help="write docs/backtest.md from the stored results")
@@ -271,7 +276,11 @@ def main(
     if not confirm(text, input_fn):
         print("Aborted.")
         return 1
-    asyncio.run(run_analyze(settings, bcfg, cfg, args.limit, args.max_credits, today, args.batch))
+    asyncio.run(
+        run_analyze(
+            settings, bcfg, cfg, args.limit, args.max_credits, today, args.batch, args.before
+        )
+    )
     return 0
 
 
