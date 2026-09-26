@@ -9,8 +9,11 @@ from app.nansen.models import (
     SmartMoneyDexTradesResponse,
     TGMDexTradesResponse,
     TGMFlowIntelligenceResponse,
+    TGMHistoricalDexTradesResponse,
     TGMHoldersResponse,
     TGMTokenInformationResponse,
+    TokenOhlcvResponse,
+    TokenScreenerHistoricalResponse,
     TokenScreenerResponse,
 )
 
@@ -25,6 +28,9 @@ MODEL_BY_ENDPOINT_SLUG = {
     "profiler/address/current-balance": ProfilerAddressBalancesResponse,
     "tgm/token-information": TGMTokenInformationResponse,
     "tgm/flow-intelligence": TGMFlowIntelligenceResponse,
+    "token-screener/historical": TokenScreenerHistoricalResponse,
+    "tgm/historical-dex-trades": TGMHistoricalDexTradesResponse,
+    "tgm/historical-token-ohlcv": TokenOhlcvResponse,
 }
 
 

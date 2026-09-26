@@ -50,12 +50,19 @@ guesses. This file is the source of truth; SPEC.md §2 is direction, not a contr
 | Supply / token stats | `POST /api/v1/tgm/token-information` | `chain`, `token_address`, `timeframe` (all required) | `data.token_details.{circulating_supply,total_supply}`, `data.spot_metrics.total_holders` — **no deployer address field exists in this schema** | SPEC hoped for a deployer field; it isn't there. Deployer detection (Phase 3's "deployer link" heuristic) will need another source (e.g. first entry in `related-wallets`/`tgm/dex-trades` ordering) — flag for Phase 3 planning. |
 | Segment flows | `POST /api/v1/tgm/flow-intelligence` | `chain`, `token_address` (`timeframe` optional, defaults `1d`) | `data[]` (list, not a single object) of segment metrics: `public_figure_*`, `top_pnl_*`, `whale_*`, `smart_trader_*`, `exchange_*`, `fresh_wallets_*` — `exchange_wallet_count` is documented as **always 0** (not tracked), same for `fresh_wallets_wallet_count` | `smart_trader_*` is the closest match to SPEC's "Smart Money" segment. Two count fields are permanently 0 per the docs themselves — don't treat as a data bug. |
 
-## Deferred to Phase 8 (verified only by name, not modeled yet)
+## Historical endpoints (Phase 8, verified against the live docs on 2026-09-24 and 2026-09-26)
 
-The backtest/historical endpoints in SPEC.md §2 (`tgm/historical-dex-trades`,
-`tgm/historical-top-holders`, `token-screener/historical`, etc.) exist under
-`/api/v1beta1/...` per the docs index and are billed separately (5–25 credits). Per the Phase 1
-plan approved in chat, these are verified and modeled when Phase 8 actually needs them, not now.
+All three live under `/api/v1beta1/` and cost **5 credits per call** (5x the current-data
+equivalent). The dedicated top-holders history endpoint costs 25 and is **not used**: balances are
+rebuilt from trades instead (see `docs/backtest.md`).
+
+| Purpose | Path | Request | Response notes |
+|---|---|---|---|
+| Candidates per day | `POST /api/v1beta1/token-screener/historical` | `to_date`, `timeframe_days` (1-365), `chains` (solana, base, bnb, ethereum...), `filters.volume_usd`, `filters.token_age_days` (integers), `order_by` (`volume`) | `data[]` with `token_address`, `token_symbol`, `chain`, `volume`, `market_cap_usd`... |
+| Trades in a window | `POST /api/v1beta1/tgm/historical-dex-trades` | `chain`, `token_address`, `date_range {from,to}`, `filters.include_labels` (historical label names such as `Fund`, `Smart Trader`, `90D Smart Trader`) | rows carry **no token address** (the request already fixes it); `block_timestamp` has second resolution |
+| Price and market cap candles | `POST /api/v1beta1/tgm/historical-token-ohlcv` | `chain`, `token_address`, `timeframe` (`5m`..`1w`), `date_from`, `as_of_date` | `data[]`: `interval_start`, OHLC, `volume_usd`, `market_cap {open,high,low,close}`; `truncated` flag |
+
+Fixtures for these are hand-authored from the documented schemas, like the rest.
 
 ## Fixtures
 

@@ -104,6 +104,19 @@ class AlertsConfig(BaseModel):
     cooldown_minutes: float
 
 
+class BacktestConfig(BaseModel):
+    days: int
+    lag_days: int
+    min_volume_usd: float
+    max_candidates_per_day_chain: int
+    candle_timeframe: str
+    max_trade_pages: int
+    tier_pages: int
+    exit_trade_pages: int
+    dump_threshold_pct: float
+    horizons_hours: list[int]
+
+
 class ScoringConfig(BaseModel):
     discovery: DiscoveryConfig
     bundle: BundleConfig
@@ -112,6 +125,7 @@ class ScoringConfig(BaseModel):
     budget: BudgetConfig
     monitor: MonitorConfig
     alerts: AlertsConfig
+    backtest: BacktestConfig
 
 
 @lru_cache

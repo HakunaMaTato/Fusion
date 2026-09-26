@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "token_address": "TOKENaddress",
+      "token_symbol": "WORLD",
+      "chain": "solana",
+      "price_usd": 1.2,
+      "market_cap_usd": 1200000.0,
+      "volume": 450000.0,
+      "buy_volume": 250000.0,
+      "sell_volume": 200000.0,
+      "netflow": 50000.0,
+      "token_age_days": 1
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 1000,
+    "is_last_page": true
+  }
+}

@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import re
 import time
 from collections import deque
 from collections.abc import Callable
@@ -23,7 +24,7 @@ def _stable_hash(body: dict[str, Any]) -> str:
 
 
 def fixture_path(endpoint: str, body: dict[str, Any], fixtures_dir: Path) -> Path:
-    slug = endpoint.removeprefix("/api/v1/")
+    slug = re.sub(r"^/api/v1(beta1)?/", "", endpoint)
     return fixtures_dir / slug / f"{_stable_hash(body)}.json"
 
 
