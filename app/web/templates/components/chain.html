@@ -1,0 +1,8 @@
+{#
+  Chain chip (UI_REDESIGN.md §4): chain name in sentence case with a small coloured dot. The dot's
+  colour comes from a CSS class (app/web/format.py's chain_class(), tokens.css's --chain-* map),
+  never an inline style — the CSP forbids those.
+#}
+{% macro chain_chip(chain) -%}
+<span class="chain-chip"><span class="chain-dot {{ chain|chain_class }}"></span>{{ chain|chain_label }}</span>
+{%- endmacro %}

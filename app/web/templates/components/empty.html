@@ -1,0 +1,9 @@
+{#
+  Empty value (UI_REDESIGN.md §4): zero or missing data renders as an em dash, not "$0" or a blank
+  cell (issue 12), with a tooltip explaining why. Not wired into any page yet — UI-4 is where the
+  "market cap at entry: $0" bug (issue 12) actually gets fixed, by calling this instead of `|money`
+  wherever the underlying value is truly missing rather than zero. Built and tested now.
+#}
+{% macro empty_value(reason="Not available from Nansen yet") -%}
+<span class="value-empty" title="{{ reason }}">&mdash;</span>
+{%- endmacro %}

@@ -1,3 +1,6 @@
+{% from "components/avatar.html" import token_avatar %}
+{% from "components/chain.html" import chain_chip %}
+{% from "components/verdict.html" import verdict_pill %}
 {% if unavailable %}
 <p class="empty">No data yet. The worker has not produced any results, or the data is temporarily unavailable.</p>
 {% elif rows %}
@@ -18,12 +21,13 @@
     {% for r in rows %}
     <tr>
       <td data-label="Token">
+        {{ token_avatar(r.address, r.symbol, r.chain) }}
         <a class="token-link" href="/token/{{ r.chain|urlencode }}/{{ r.address|urlencode }}">{{ r.symbol }}</a>
-        <span class="muted">{{ r.chain }}</span>
+        {{ chain_chip(r.chain) }}
       </td>
       <td data-label="Age">{{ r.age_hours|age }}</td>
       <td data-label="Market cap" class="num">{{ r.market_cap_usd|money }}</td>
-      <td data-label="Verdict"><span class="badge {{ r.verdict_class }}">{{ r.verdict }}</span></td>
+      <td data-label="Verdict">{{ verdict_pill(r.verdict, "sm") }}</td>
       <td data-label="Score" class="num">{{ "%.0f"|format(r.score) }}</td>
       <td data-label="Bundle" class="num">{{ r.bundle_supply_pct|percent }}</td>
       <td data-label="Smart wallets" class="num">{{ r.sm_wallets }}</td>

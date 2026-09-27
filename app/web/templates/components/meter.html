@@ -1,0 +1,12 @@
+{#
+  Meter (UI_REDESIGN.md §4): a full-width, 6px bar. Built as a styled <progress> so the browser
+  gives it progressbar semantics and a value announcement for free; `variant` only changes colour
+  (green/watch/avoid/accent), it never changes the number shown next to it.
+
+  Not wired into any page yet (UI-4 replaces the score-component rows and their existing
+  <progress> elements with this; UI-3 uses it for the list table's bundle/score columns). Built
+  and tested now so those phases can use it directly.
+#}
+{% macro meter(value, max=100, variant="accent") -%}
+<progress class="meter meter-{{ variant }}" max="{{ max }}" value="{{ value }}">{{ value }}/{{ max }}</progress>
+{%- endmacro %}

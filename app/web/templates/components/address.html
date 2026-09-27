@@ -1,0 +1,19 @@
+{% from "components/icons.html" import icon_copy, icon_check, icon_external_link %}
+
+{#
+  Address chip (UI_REDESIGN.md §4): mono, shortened, with a copy button (address-chip.js swaps its
+  icon to a check mark for 1.5s) and an explorer-link icon when the chain/address pair is one the
+  app recognises (wallet_url() global, app/web/links.py). Used for every address on every page
+  (issue 5) instead of a bare underlined link.
+
+  `address` may be attacker-controlled (it is remote data); Jinja's autoescaping covers both the
+  text and the `data-copy` attribute, and tests/unit/test_components.py checks this directly.
+#}
+{% macro address_chip(chain, address) -%}
+{%- set url = wallet_url(chain, address) -%}
+<span class="address-chip">
+  <span class="mono">{{ address|short }}</span>
+  <button type="button" class="address-copy-btn" data-copy-text="{{ address }}" aria-label="Copy address">{{ icon_copy("icon address-copy-icon") }}{{ icon_check("icon address-check-icon") }}</button>
+  {%- if url %}<a class="address-explorer-link" href="{{ url }}" rel="noopener noreferrer" target="_blank" aria-label="View on block explorer">{{ icon_external_link() }}</a>{% endif -%}
+</span>
+{%- endmacro %}
