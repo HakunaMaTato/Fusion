@@ -62,7 +62,46 @@ def age_since(moment: datetime | None, now: datetime | None = None) -> str:
 
 
 def short_address(address: str) -> str:
-    return address if len(address) <= 14 else f"{address[:6]}...{address[-4:]}"
+    """UI_REDESIGN.md §4 address chip: "0x55db…7777" (a real ellipsis, not three periods)."""
+    return address if len(address) <= 14 else f"{address[:6]}…{address[-4:]}"
+
+
+# The chains the app knows a colour and an explorer for (app/web/links.py, tokens.css). Anything
+# else is real data (a chain Nansen added that we haven't wired up yet) — never raise on it, and
+# never let it become an arbitrary CSS class name; fall back to a neutral, unstyled chip instead.
+KNOWN_CHAINS = frozenset({"solana", "base", "bnb", "bsc", "ethereum", "robinhood"})
+
+
+def chain_class(chain: str) -> str:
+    """CSS class suffix for the chain chip's coloured dot: "chain-<name>" or "chain-default"."""
+    return f"chain-{chain}" if chain in KNOWN_CHAINS else "chain-default"
+
+
+CHAIN_LABELS = {
+    "solana": "Solana",
+    "base": "Base",
+    "bnb": "BNB",
+    "bsc": "BNB",  # the name Nansen returns for BNB Chain tokens
+    "ethereum": "Ethereum",
+    "robinhood": "Robinhood",
+}
+
+
+def chain_label(chain: str) -> str:
+    """Display name for the chain chip (§5.4/§4): sentence case, except acronyms like BNB."""
+    return CHAIN_LABELS.get(chain, chain.capitalize())
+
+
+AVATAR_HUES = 8
+
+
+def avatar_hue(address: str) -> int:
+    """Which of the 8 token-avatar hues (tokens.css --avatar-0..7) an address gets.
+
+    Deterministic and stable across processes and Python versions (unlike the builtin hash(),
+    which is randomised per process for str). Not cryptographic; this only ever picks a colour.
+    """
+    return sum(address.encode("utf-8")) % AVATAR_HUES
 
 
 CLUSTER_REASONS = {

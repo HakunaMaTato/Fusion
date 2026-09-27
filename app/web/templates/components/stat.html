@@ -1,0 +1,11 @@
+{#
+  Stat (UI_REDESIGN.md §4): a muted label above a bold tabular value. Meant to sit in a `.stat-row`
+  (an inline row, spaced apart — not the boxed-card grid the current `.facts` sections use).
+
+  Not wired into any page yet: replacing `.facts` with `.stat-row` is UI-4's "score build-up" and
+  "stat row" work (§6.1/§6.7), done alongside that section's full layout change. Built and tested
+  now so that phase can use it directly.
+#}
+{% macro stat(label, value) -%}
+<span class="stat"><span class="stat-label">{{ label }}</span><span class="stat-value">{{ value }}</span></span>
+{%- endmacro %}

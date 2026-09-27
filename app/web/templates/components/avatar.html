@@ -1,0 +1,8 @@
+{#
+  Token avatar (UI_REDESIGN.md §4): a 32px circle with a colour derived from the address (one of
+  8 hues, app/web/format.py's avatar_hue()) and the symbol's first letter, with a small chain dot
+  in the corner. All via CSS classes, never inline style.
+#}
+{% macro token_avatar(address, symbol, chain) -%}
+<span class="avatar avatar-{{ address|avatar_hue }}" aria-hidden="true">{{ (symbol[0] if symbol else "?")|upper }}<span class="avatar-chain-dot {{ chain|chain_class }}"></span></span>
+{%- endmacro %}

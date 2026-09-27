@@ -6,6 +6,13 @@
 
 * { box-sizing: border-box; }
 
+/* UI_REDESIGN.md §4: no default-blue underlined links (issue 5), and a visible focus ring on
+   every interactive element, everywhere — not just the elements this phase happens to touch. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   background: var(--ink);
@@ -24,7 +31,8 @@ main { flex: 1; padding-block: var(--s-5) var(--s-7); }
   .wrap { padding-inline: var(--side-padding-mobile); }
 }
 
-a { color: var(--accent); }
+a { color: var(--accent); text-decoration: none; }
+a:hover, a:focus-visible { text-decoration: underline; }
 h1 { font-size: 1.6rem; margin: 0 0 var(--s-2); line-height: 1.25; }
 h2 { font-size: 1.2rem; margin: var(--s-6) 0 var(--s-2); }
 h3 { font-size: 1rem; margin: var(--s-4) 0 var(--s-1); }

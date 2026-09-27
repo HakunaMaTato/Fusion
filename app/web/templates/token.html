@@ -1,13 +1,18 @@
 {% extends "base.html" %}
+{% from "components/avatar.html" import token_avatar %}
+{% from "components/chain.html" import chain_chip %}
+{% from "components/verdict.html" import verdict_pill %}
+{% from "components/address.html" import address_chip %}
+{% from "components/tier.html" import tier_badge %}
 {% set active = "tokens" %}
 {% block title %}{{ token.symbol }} on {{ token.chain }} - LP Radar{% endblock %}
 {% block content %}
 <p class="crumbs"><a href="/">All tokens</a></p>
 <div class="title-row">
-  <h1>{{ token.symbol }} <span class="muted">on {{ token.chain }}</span></h1>
-  <span class="badge badge-lg {{ verdict_class }}">{{ latest.verdict }}</span>
+  <h1>{{ token_avatar(token.token_address, token.symbol, token.chain) }} {{ token.symbol }} {{ chain_chip(token.chain) }}</h1>
+  {{ verdict_pill(latest.verdict, "lg") }}
 </div>
-<p class="address">{{ token.token_address }}</p>
+<p>{{ address_chip(token.chain, token.token_address) }}</p>
 <p class="links">
   {% if explorer_url %}<a href="{{ explorer_url }}" rel="noopener noreferrer" target="_blank">Block explorer</a>{% endif %}
   <a href="{{ nansen_url }}" rel="noopener noreferrer" target="_blank">Nansen app</a>
@@ -66,13 +71,10 @@
       {% if cluster.similar_size %}<span class="tag">{{ "similar_size"|cluster_reason }}</span>{% endif %}
     </p>
     {% if cluster.funders %}
-    <p class="muted">Funder: {% for f in cluster.funders %}<span class="mono">{{ f|short }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+    <p class="muted">Funder: {% for f in cluster.funders %}{{ address_chip(token.chain, f) }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
     {% endif %}
     <p class="wallets">
-      {% for w in cluster.wallets %}
-      {% set url = wallet_url(token.chain, w) %}
-      {% if url %}<a class="mono" href="{{ url }}" rel="noopener noreferrer" target="_blank">{{ w|short }}</a>{% else %}<span class="mono">{{ w|short }}</span>{% endif %}
-      {% endfor %}
+      {% for w in cluster.wallets %}{{ address_chip(token.chain, w) }}{% endfor %}
     </p>
   </article>
   {% endfor %}
@@ -97,10 +99,9 @@
     </thead>
     <tbody>
       {% for w in smart.wallets %}
-      {% set url = wallet_url(token.chain, w.address) %}
       <tr>
-        <td data-label="Wallet">{% if url %}<a class="mono" href="{{ url }}" rel="noopener noreferrer" target="_blank">{{ w.address|short }}</a>{% else %}<span class="mono">{{ w.address|short }}</span>{% endif %}</td>
-        <td data-label="Tier">{{ w.tier }}</td>
+        <td data-label="Wallet">{{ address_chip(token.chain, w.address) }}</td>
+        <td data-label="Tier">{{ tier_badge(w.tier) }}</td>
         <td data-label="Bought" class="num">{{ w.bought_usd|money }}</td>
         <td data-label="Sold" class="num">{{ w.sold_usd|money }}</td>
         <td data-label="Holding">{{ "yes" if w.still_holding else "no" }}</td>

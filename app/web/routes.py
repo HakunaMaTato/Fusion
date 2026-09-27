@@ -39,6 +39,9 @@ templates.env.filters.update(
     short=fmt.short_address,
     cluster_reason=fmt.cluster_reason,
     component=fmt.component_label,
+    chain_class=fmt.chain_class,
+    chain_label=fmt.chain_label,
+    avatar_hue=fmt.avatar_hue,
 )
 templates.env.globals.update(wallet_url=wallet_explorer_url)
 
@@ -54,15 +57,10 @@ class TokenRowView:
     age_hours: float | None
     market_cap_usd: float | None
     verdict: str
-    verdict_class: str
     score: float
     bundle_supply_pct: float
     sm_wallets: int
     updated_at: datetime
-
-
-def _verdict_class(verdict: str) -> str:
-    return f"verdict-{verdict.lower()}" if verdict in VERDICTS else "verdict-unknown"
 
 
 def _row_view(token: TokenRow, snapshot: SnapshotRow, now: datetime) -> TokenRowView:
@@ -74,7 +72,6 @@ def _row_view(token: TokenRow, snapshot: SnapshotRow, now: datetime) -> TokenRow
         age_hours=age,
         market_cap_usd=snapshot.market_cap_usd,
         verdict=snapshot.verdict,
-        verdict_class=_verdict_class(snapshot.verdict),
         score=snapshot.score,
         bundle_supply_pct=snapshot.bundle_supply_pct,
         sm_wallets=int(snapshot.smart_money.get("wallet_count", 0)),
@@ -202,7 +199,6 @@ def token_page(
         {
             "token": token,
             "latest": latest,
-            "verdict_class": _verdict_class(latest.verdict),
             "age_hours": (now - token.deployed_at).total_seconds() / 3600
             if token.deployed_at
             else None,

@@ -1,0 +1,19 @@
+{% from "components/icons.html" import icon_check_circle, icon_eye, icon_alert_triangle %}
+
+{#
+  Verdict pill (UI_REDESIGN.md §4): icon + word in sentence case, on a tint background. Verdict is
+  never conveyed by colour alone (the icon differs per verdict too). `size` is "sm" (tables) or
+  "lg" (headers). An unrecognised verdict falls back to a neutral, icon-less pill rather than
+  guessing or raising.
+#}
+{% macro verdict_pill(verdict, size="sm") -%}
+{%- if verdict == "GREEN" -%}
+<span class="pill pill-{{ size }} pill-green">{{ icon_check_circle("pill-icon") }}Green</span>
+{%- elif verdict == "WATCH" -%}
+<span class="pill pill-{{ size }} pill-watch">{{ icon_eye("pill-icon") }}Watch</span>
+{%- elif verdict == "AVOID" -%}
+<span class="pill pill-{{ size }} pill-avoid">{{ icon_alert_triangle("pill-icon") }}Avoid</span>
+{%- else -%}
+<span class="pill pill-{{ size }} pill-unknown">{{ verdict }}</span>
+{%- endif -%}
+{%- endmacro %}

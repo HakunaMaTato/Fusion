@@ -80,8 +80,9 @@ def test_index_shows_the_row_values(client: TestClient) -> None:
     body = client.get("/").text
 
     assert "$2.40M" in body and "38.0%" in body
-    assert 'class="badge verdict-green">GREEN<' in body
-    assert 'class="badge verdict-avoid">AVOID<' in body
+    assert 'class="pill pill-sm pill-green"' in body and ">Green<" in body
+    assert 'class="pill pill-sm pill-avoid"' in body and ">Avoid<" in body
+    assert 'class="badge verdict-' not in body  # UI-2: swapped for the verdict pill everywhere
 
 
 def test_verdict_and_chain_filters(client: TestClient) -> None:
@@ -158,7 +159,7 @@ def test_a_database_without_tables_shows_no_data_yet(tmp_path: Path) -> None:
 def test_token_page_explains_the_verdict(client: TestClient) -> None:
     body = client.get(AVOID).text
 
-    assert "DEMO-AVOID" in body and ">AVOID<" in body
+    assert "DEMO-AVOID" in body and 'class="pill pill-lg pill-avoid"' in body and ">Avoid<" in body
     assert "Vetoed: bundle supply, sm net selling" in body
     assert "bundle of 14 wallets holds 38% of supply (veto above 30%)" in body
     assert "Smart money participation" in body  # readable component names
@@ -372,7 +373,9 @@ def test_pages_use_no_inline_styles_or_scripts(client: TestClient) -> None:
         assert " style=" not in body, path
         assert "<style" not in body, path
         assert "onclick=" not in body, path
-        assert body.count("<script") == 1, path  # only the vendored htmx
+        # the vendored htmx and the address-chip copy-button handler (both external files)
+        assert body.count("<script") == 2, path
+        assert '<script src="/static/js/address-chip.js" defer></script>' in body, path
 
 
 def test_the_stylesheet_has_a_phone_breakpoint(client: TestClient) -> None:

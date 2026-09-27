@@ -1,0 +1,215 @@
+/* Shared components (UI_REDESIGN.md §4). Tokens-only, like every other stylesheet in this app
+   (tests/unit/test_design_tokens.py). Icon/avatar/dot sizes below (16px, 32px, 12px, 6px) are
+   fixed component dimensions, not part of the 4px spacing scale — the spec itself hands out
+   non-scale pixel sizes for specific components this same way (e.g. a 56px table row in §5.4). */
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* --- Verdict pill --- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  border-radius: var(--radius-pill);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.pill-sm {
+  padding: var(--s-1) var(--s-3);
+  font-size: var(--text-label-size);
+}
+
+.pill-lg {
+  padding: var(--s-2) var(--s-4);
+  font-size: var(--text-subsection-size);
+}
+
+.pill .pill-icon {
+  width: 1em;
+  height: 1em;
+}
+
+.pill-green { background: var(--green-tint); color: var(--green); }
+.pill-watch { background: var(--watch-tint); color: var(--watch); }
+.pill-avoid { background: var(--avoid-tint); color: var(--avoid); }
+.pill-unknown { background: var(--surface-raised); color: var(--text-muted); }
+
+/* --- Chain chip --- */
+
+.chain-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-muted);
+}
+
+.chain-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chain-solana { background: var(--chain-solana); }
+.chain-base { background: var(--chain-base); }
+.chain-bnb,
+.chain-bsc { background: var(--chain-bnb); }
+.chain-ethereum { background: var(--chain-ethereum); }
+.chain-robinhood { background: var(--chain-robinhood); }
+.chain-default { background: var(--chain-default); }
+
+/* --- Token avatar --- */
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--ink); /* dark text reads better than light text across all 8 mid-tone hues */
+  font-size: var(--text-cell-size);
+  font-weight: var(--weight-semibold);
+  vertical-align: middle;
+}
+
+.avatar-0 { background: var(--avatar-0); }
+.avatar-1 { background: var(--avatar-1); }
+.avatar-2 { background: var(--avatar-2); }
+.avatar-3 { background: var(--avatar-3); }
+.avatar-4 { background: var(--avatar-4); }
+.avatar-5 { background: var(--avatar-5); }
+.avatar-6 { background: var(--avatar-6); }
+.avatar-7 { background: var(--avatar-7); }
+
+.avatar-chain-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+}
+
+/* --- Tier badge --- */
+
+.tier-badge {
+  display: inline-block;
+  padding: var(--s-1) var(--s-2);
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: var(--text-label-size);
+}
+
+.tier-fund {
+  color: var(--text);
+  outline: 1px solid var(--series-smart);
+  outline-offset: -1px;
+}
+
+/* --- Address chip --- */
+
+.address-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.address-copy-btn,
+.address-explorer-link {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s-1);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.address-copy-btn:hover,
+.address-copy-btn:focus-visible,
+.address-explorer-link:hover,
+.address-explorer-link:focus-visible {
+  color: var(--accent);
+}
+
+.address-copy-btn .address-check-icon { display: none; }
+.address-copy-btn.copied .address-copy-icon { display: none; }
+.address-copy-btn.copied .address-check-icon { display: inline-block; }
+.address-copy-btn.copied { color: var(--green); }
+
+/* --- Meter --- */
+
+.meter {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: var(--line);
+}
+
+.meter::-webkit-progress-bar {
+  background: var(--line);
+  border-radius: var(--radius-chip);
+}
+
+.meter::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: var(--radius-chip);
+}
+
+.meter::-moz-progress-bar {
+  background: var(--accent);
+  border-radius: var(--radius-chip);
+}
+
+.meter-green::-webkit-progress-value { background: var(--green); }
+.meter-green::-moz-progress-bar { background: var(--green); }
+.meter-watch::-webkit-progress-value { background: var(--watch); }
+.meter-watch::-moz-progress-bar { background: var(--watch); }
+.meter-avoid::-webkit-progress-value { background: var(--avoid); }
+.meter-avoid::-moz-progress-bar { background: var(--avoid); }
+
+/* --- Stat --- */
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-5);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.stat-label {
+  font-size: var(--text-label-size);
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: var(--text-section-size);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Empty value --- */
+
+.value-empty {
+  color: var(--text-faint);
+  cursor: help;
+}

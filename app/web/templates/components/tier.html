@@ -1,0 +1,8 @@
+{#
+  Tier badge (UI_REDESIGN.md §4): the smart-money label (Fund, 180D Smart Trader, ...) as a small
+  neutral chip. Funds get a --series-smart outline. The tier string comes from config/scoring.yaml
+  label_weights keys, but is rendered as ordinary escaped text either way.
+#}
+{% macro tier_badge(tier) -%}
+<span class="tier-badge{{ ' tier-fund' if tier == 'Fund' }}">{{ tier }}</span>
+{%- endmacro %}

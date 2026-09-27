@@ -165,7 +165,7 @@ def test_age_since() -> None:
 
 def test_labels() -> None:
     assert short_address("abc") == "abc"
-    assert short_address("0123456789abcdef0123") == "012345...0123"
+    assert short_address("0123456789abcdef0123") == "012345…0123"  # a real ellipsis (§4)
     assert cluster_reason("same_second") == "bought in the same second"
     assert cluster_reason("something_new") == "something new"
     assert component_label("sm_participation") == "Smart money participation"
