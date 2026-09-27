@@ -1,4 +1,5 @@
 import hashlib
+import re
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,7 @@ from app.storage.db import get_session_factory, init_db, make_engine, make_sessi
 
 API_KEY = "nsn_TESTKEY_MUST_NEVER_APPEAR_123456"
 HTMX_SHA256 = "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447"
+ECHARTS_SHA256 = "50e7e49a5bf9d425cf3a10805cb0db1a6824d3e4648e543cd945d06dac24c491"
 GREEN = f"/token/solana/{solana_address('green')}"
 WATCH = f"/token/base/{evm_address('watch')}"
 AVOID = f"/token/bnb/{evm_address('avoid')}"
@@ -170,9 +172,65 @@ def test_token_page_explains_the_verdict(client: TestClient) -> None:
 def test_token_page_has_a_score_history_chart(client: TestClient) -> None:
     body = client.get(GREEN).text
 
-    assert '<svg class="chart"' in body
+    assert 'id="score-history-chart"' in body
     assert "8 snapshots" in body
-    assert body.count('class="chart-point verdict-') == 8
+    assert '"score": 84' in body  # the embedded JSON data, read by charts.js
+
+
+def test_score_history_chart_is_an_empty_state_below_two_snapshots(engine: Engine) -> None:
+    from app.demo import _analysis, _candidate
+
+    cand = _candidate("solana", "onesnap", "ONE", datetime.now(UTC) - timedelta(hours=1), 1e6)
+    with make_session_factory(engine)() as session:
+        token = repo.upsert_token(session, cand, datetime.now(UTC))
+        repo.save_snapshot(
+            session,
+            token,
+            _analysis(cand, datetime.now(UTC), score=50, verdict="WATCH", reasons=["r"]),
+        )
+    use(make_session_factory(engine))
+    try:
+        body = TestClient(app).get("/token/solana/onesnap").text
+    finally:
+        app.dependency_overrides.clear()
+
+    assert "Score history appears after the next re-check." in body
+    assert 'id="score-history-chart"' not in body
+
+
+def test_token_page_has_a_supply_ring_with_a_real_html_legend(client: TestClient) -> None:
+    green = client.get(GREEN).text
+    avoid = client.get(AVOID).text
+
+    assert 'id="ring-chart"' in green
+    assert 'aria-label="Supply breakdown: Smart money 5.0%, Rest of supply 95.0%"' in green
+    assert "Smart money: 5.0% (4 wallets)" in green  # the real HTML legend, not just the chart
+    assert "Rest of supply: 95.0%" in green
+    assert "Top holders aren&#39;t broken out separately" in green
+
+    assert "Bundle: 38.0% (14 wallets)" in avoid
+
+
+def test_token_page_has_a_tier_donut_and_a_buy_sell_chart(client: TestClient) -> None:
+    body = client.get(GREEN).text
+
+    assert 'id="tier-donut-chart"' in body
+    assert 'id="buysell-chart"' in body
+    assert 'data-tier-legend="Fund"' in body
+    assert 'data-tier="Fund"' in body and 'data-wallet="' in body  # table rows, for JS filtering
+
+
+def test_tier_filter_chip_is_hidden_until_a_tier_is_picked(client: TestClient) -> None:
+    body = client.get(GREEN).text
+
+    assert '<p id="tier-filter-chip" class="chip-clear" hidden>' in body
+
+
+def test_bundle_and_smart_money_sections_have_scroll_anchors(client: TestClient) -> None:
+    body = client.get(AVOID).text
+
+    assert 'id="bundle-section"' in body
+    assert 'id="smart-money-section"' in body
 
 
 def test_token_page_shows_bundle_clusters_and_why(client: TestClient) -> None:
@@ -460,9 +518,13 @@ def test_pages_use_no_inline_styles_or_scripts(client: TestClient) -> None:
         assert " style=" not in body, path
         assert "<style" not in body, path
         assert "onclick=" not in body, path
-        # the vendored htmx and the address-chip copy-button handler (both external files)
-        assert body.count("<script") == 2, path
+        # every <script> tag is either an external file or an inert JSON data block for charts.js
+        # to read (Jinja's `tojson` escapes it safely) -- never inline executable code.
+        for tag in re.findall(r"<script\b[^>]*>", body):
+            assert "src=" in tag or 'type="application/json"' in tag, (path, tag)
         assert '<script src="/static/js/address-chip.js" defer></script>' in body, path
+        assert '<script src="/static/vendor/echarts.min.js" defer></script>' in body, path
+        assert '<script src="/static/js/charts.js" defer></script>' in body, path
 
 
 def test_the_stylesheet_has_a_phone_breakpoint(client: TestClient) -> None:
@@ -509,6 +571,13 @@ def test_the_vendored_htmx_is_the_pinned_release(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert hashlib.sha256(response.content).hexdigest() == HTMX_SHA256
+
+
+def test_the_vendored_echarts_is_the_pinned_release(client: TestClient) -> None:
+    response = client.get("/static/vendor/echarts.min.js")
+
+    assert response.status_code == 200
+    assert hashlib.sha256(response.content).hexdigest() == ECHARTS_SHA256
 
 
 def test_tokens_not_updated_within_a_day_are_hidden(engine: Engine) -> None:

@@ -1,3 +1,9 @@
 *.sh text eol=lf
 Caddyfile text eol=lf
 deploy/Caddyfile text eol=lf
+
+# Vendored, hash-pinned third-party files (tests/unit/test_web.py): never let line-ending
+# conversion touch these, or a Windows checkout with core.autocrlf=true silently rewrites LF to
+# CRLF and breaks the pinned SHA-256.
+app/web/static/htmx.min.js binary
+app/web/static/vendor/echarts.min.js binary

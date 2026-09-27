@@ -85,6 +85,7 @@ def _analysis(
             smart_wallets=frozenset(w.address for w in smart),
             total_holders=2400,
             wallets=smart,
+            circulating_supply=200_000.0 if smart else None,
         ),
         smart_wallets_in_bundle=frozenset(),
         score=ScoreResult(

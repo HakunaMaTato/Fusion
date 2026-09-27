@@ -18,9 +18,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: var(--s-1);
+  gap: var(--s-4);
 }
 
 .why-panel { grid-column: span 7; }
@@ -30,6 +28,26 @@
   .why-panel {
     grid-column: span 12;
   }
+}
+
+.ring-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+}
+
+.ring-chart {
+  width: 100%;
+  height: 300px;
+}
+
+.ring-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
 }
 
 .ring-score {
@@ -50,9 +68,36 @@
 .ring-verdict-watch { color: var(--watch); }
 .ring-verdict-avoid { color: var(--avoid); }
 
-.ring-note {
-  font-size: var(--text-label-size);
+.ring-legend {
+  list-style: none;
   margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  font-size: var(--text-label-size);
+}
+
+.ring-legend li { display: flex; align-items: center; gap: var(--s-2); }
+
+.ring-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ring-legend-dot-bundle { background: var(--series-bundle); }
+.ring-legend-dot-smart { background: var(--series-smart); }
+.ring-legend-dot-holders { background: var(--series-holders); }
+.ring-legend-dot-rest { background: var(--series-rest); }
+
+.ring-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-label-size);
 }
 
 /* --- 6.3 Why this verdict --- */
@@ -188,3 +233,73 @@
 
   .wallets-table tr td[data-label="Balance"]:last-child { margin-bottom: 0; }
 }
+
+/* Filtering the table by tier (charts.js) toggles the `hidden` attribute rather than a class, but
+   the mobile card rule above sets `display: flex` on every row with real specificity, which (being
+   an author rule) beats the browser's own `[hidden] { display: none }` default. This rule is
+   scoped one class more specifically than that one, so it wins regardless of breakpoint or order. */
+.wallets-table tbody tr[hidden] { display: none; }
+
+.row-highlighted { background: var(--surface-raised); }
+
+/* --- 6.5 Score history chart --- */
+
+.chart-score-history { height: 280px; }
+
+/* --- 6.7 Tier donut / buy-sell charts --- */
+
+.smart-money-charts { margin-top: var(--s-2); }
+
+.tier-donut-panel,
+.buysell-panel {
+  grid-column: span 6;
+}
+
+@media (max-width: 1199px) {
+  .tier-donut-panel,
+  .buysell-panel {
+    grid-column: span 12;
+  }
+}
+
+.chart-tier-donut { height: 240px; }
+
+.chart-h-sm { height: 200px; }
+.chart-h-md { height: 360px; }
+.chart-h-lg { height: 640px; }
+
+.tier-legend {
+  list-style: none;
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.tier-legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  width: 100%;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: var(--s-1) var(--s-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tier-legend-item:hover,
+.tier-legend-item:focus-visible {
+  background: var(--surface-raised);
+}
+
+/* list.css's `.chip-clear` sets `display: inline-flex` unconditionally, which (being an author
+   rule) beats the browser's own `[hidden] { display: none }` default regardless of specificity --
+   the same lesson as the wallets-table row-hiding rule above. Without this, the filter chip shows
+   up empty before any tier filter is applied. */
+#tier-filter-chip[hidden] { display: none; }
