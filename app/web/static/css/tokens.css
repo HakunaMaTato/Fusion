@@ -1,0 +1,110 @@
+/* Design tokens (UI_REDESIGN.md §3). Every value used anywhere else in this app is a `var(...)`
+   reference to something defined here — never a raw hex colour or a raw px number. This is
+   checked in CI (tests/unit/test_design_tokens.py greps for violations).
+
+   Dark is the only theme for now (§3.1: "Colour (dark theme, default)"). A `[data-theme="light"]`
+   variant is optional future work (phase UI-6); it is not implemented here. */
+
+:root {
+  /* --- 3.1 Colour --- */
+  --ink: #0f1522;
+  --surface: #161e2e;
+  --surface-raised: #1d2739;
+  --line: #27324a;
+  --text: #e7ecf4;
+  --text-muted: #8e9ab0;
+  --text-faint: #5d6a82;
+  --accent: #5fb8e8;
+
+  --green: #3fd49a;
+  --watch: #f2b54a;
+  --avoid: #f05d63;
+
+  /* 14%-opacity tints for badge backgrounds (text on a tint uses the full-strength colour).
+     Written as plain rgba() (not CSS Color 5's relative rgb(from ...)) for broad browser support. */
+  --green-tint: rgba(63, 212, 154, 0.14); /* --green #3fd49a */
+  --watch-tint: rgba(242, 181, 74, 0.14); /* --watch #f2b54a */
+  --avoid-tint: rgba(240, 93, 99, 0.14); /* --avoid #f05d63 */
+
+  --series-smart: #9b8cfa;
+  --series-bundle: #f0789a;
+  --series-holders: #5fb8e8;
+  --series-rest: #3a4763;
+
+  /* Chain colours (§4 chain chip): one map, approximating each chain's own brand colour. */
+  --chain-solana: #9b8cfa;
+  --chain-base: #5fb8e8;
+  --chain-bnb: #f2b54a;
+  --chain-bsc: #f2b54a; /* Nansen returns BNB Chain tokens as "bsc" */
+  --chain-ethereum: #8e9ab0;
+  --chain-robinhood: #3fd49a;
+  --chain-default: var(--text-faint);
+
+  /* Token avatar (§4): 8 muted hues that sit well on --ink, chosen by hashing the address. */
+  --avatar-0: #5b6ee8;
+  --avatar-1: #9b8cfa;
+  --avatar-2: #d17bd6;
+  --avatar-3: #f0789a;
+  --avatar-4: #e8935f;
+  --avatar-5: #d6b83f;
+  --avatar-6: #6fc48a;
+  --avatar-7: #5fb8e8;
+
+  /* --- 3.2 Typography --- */
+  --font-sans:
+    "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --text-hero-size: 48px;
+  --text-hero-line: 1;
+  --text-title-size: 30px;
+  --text-title-line: 1.2;
+  --text-section-size: 20px;
+  --text-section-line: 1.3;
+  --text-subsection-size: 16px;
+  --text-subsection-line: 1.4;
+  --text-body-size: 15px;
+  --text-body-line: 1.55;
+  --text-cell-size: 14px;
+  --text-cell-line: 1.4;
+  --text-label-size: 13px;
+  --text-label-line: 1.4;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* --- 3.3 Spacing, radius, elevation --- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  --gap-section: var(--s-7);
+  --gap-title-content: var(--s-4);
+  --gap-panel: var(--s-5);
+  --panel-padding: var(--s-5);
+  --panel-padding-mobile: var(--s-4);
+
+  --radius-chip: 4px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-pill: 999px;
+
+  /* --- 3.4 Layout grid --- */
+  --content-max-width: 1360px;
+  --side-padding: var(--s-6);
+  --side-padding-mobile: var(--s-4);
+  --grid-columns: 12;
+  --grid-gutter: var(--s-5);
+
+  --breakpoint-tablet: 1199px;
+  --breakpoint-mobile: 767px;
+
+  color-scheme: dark;
+}

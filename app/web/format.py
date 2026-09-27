@@ -19,6 +19,25 @@ def percent(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.1f}%"
 
 
+# usd() and pct() are the UI_REDESIGN.md §4 formatting helpers. money()/percent() above are kept
+# as they are (existing templates and tests use them); later UI phases migrate call sites to these
+# names and the older ones can then be dropped.
+usd = money
+
+
+def pct(value: float | None) -> str:
+    """One decimal; "<0.1%" for a small non-zero value; "0%" only for a true zero (issue 13)."""
+    if value is None:
+        return "n/a"
+    if value == 0:
+        return "0%"
+    if 0 < value < 0.1:
+        return "<0.1%"
+    if -0.1 < value < 0:
+        return "-<0.1%"
+    return f"{value:.1f}%"
+
+
 def age(hours: float | None) -> str:
     if hours is None:
         return "n/a"
