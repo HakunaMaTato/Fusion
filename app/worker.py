@@ -210,12 +210,14 @@ class Worker:
         return within_count and self._can_spend(estimated_credits)
 
     async def _analyze(self, now: datetime) -> None:
-        budget = self._cfg.budget
-        for candidate in sorted(self._pending.values(), key=lambda c: -c.market_cap_usd):
-            if not self._can_afford(budget.estimated_analysis_credits):
-                return
-            await self._analyze_one(candidate, now)
+        """Re-evaluations of the watchlist go first, new candidates get whatever budget is left.
 
+        A steady stream of brand-new candidates would otherwise claim the whole hourly budget
+        every hour before a single watchlisted token is ever looked at again, since a naive
+        "new candidates first" loop never runs out of new candidates to prefer. Re-evaluation is
+        what keeps an already-alerted token's verdict trustworthy, so it must not starve.
+        """
+        budget = self._cfg.budget
         with self._sessions() as session:
             due = [
                 (token, snapshot)
@@ -228,6 +230,11 @@ class Worker:
             if not self._can_afford(budget.estimated_reeval_credits):
                 return
             await self._analyze_one(self._candidate_from_snapshot(token, snapshot, now), now)
+
+        for candidate in sorted(self._pending.values(), key=lambda c: -c.market_cap_usd):
+            if not self._can_afford(budget.estimated_analysis_credits):
+                return
+            await self._analyze_one(candidate, now)
 
     @staticmethod
     def _candidate_from_snapshot(
