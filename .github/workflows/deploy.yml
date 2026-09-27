@@ -87,8 +87,16 @@ jobs:
           scp $ssh_opts deploy/Caddyfile deploy/caddy-entrypoint.sh "$VM_USER@$VM_HOST:/opt/lp-radar/deploy/"
           # The VM logs in to the registry with this job's temporary token, only for the pull, and
           # logs out again: no long-lived token is stored on the VM.
+          #
+          # docker compose up always runs with IMAGE_TAG=$SHA (never bare "latest"), so the
+          # locally cached `:latest` tag is never touched by a normal deploy and stays frozen at
+          # whatever the VM's very first `docker compose up -d --build` produced. Any later manual
+          # `docker compose` command on the VM that doesn't set IMAGE_TAG silently falls back to
+          # that stale image (found the hard way: it happened here). Retagging `:latest` to the
+          # freshly pulled image on every deploy keeps that fallback current instead of removing
+          # it, since some manual commands (docs/deploy.md) still rely on it.
           printf '%s' "$GH_TOKEN" | ssh $ssh_opts "$VM_USER@$VM_HOST" \
-            "cd /opt/lp-radar && export IMAGE_TAG=$SHA && docker login ghcr.io -u $GH_ACTOR --password-stdin >/dev/null && docker compose pull && docker compose up -d --remove-orphans && echo $SHA > .deployed-tag; rc=\$?; docker logout ghcr.io >/dev/null 2>&1; exit \$rc"
+            "cd /opt/lp-radar && export IMAGE_TAG=$SHA && docker login ghcr.io -u $GH_ACTOR --password-stdin >/dev/null && docker compose pull && docker tag ghcr.io/hakunamatato/fusion:$SHA ghcr.io/hakunamatato/fusion:latest && docker compose up -d --remove-orphans && echo $SHA > .deployed-tag; rc=\$?; docker logout ghcr.io >/dev/null 2>&1; exit \$rc"
 
       - name: Wait for /healthz
         if: steps.cfg.outputs.ready == 'true'

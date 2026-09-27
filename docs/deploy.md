@@ -283,10 +283,26 @@ cd /opt/lp-radar && IMAGE_TAG=<previous-sha> docker compose up -d
   `.env` and `docker compose up -d`.
 - **Robinhood Chain:** the live endpoints work for it, but Nansen's historical endpoints do not
   cover it, so it cannot be backtested. Its explorer links go to robinhoodchain.blockscout.com.
-- **Nansen's data terms:** the dashboard is behind a login, which counts as internal use. It shows
-  a "Powered by Nansen API" attribution. Do not make it public without Nansen's written
-  confirmation; the terms treat smart-money data and address labels as internal-only.
-- **Updating logins:** change `DASHBOARD_USERS_B64` in `.env`, then `docker compose up -d caddy`.
+- **Nansen's data terms:** this note originally said to keep the dashboard behind a login because
+  the terms treat smart-money data and address labels as internal-only, and to get Nansen's
+  written confirmation before making it public. The login was removed on 2026-09-27 for the
+  Buildathon judging period (a fixed-deadline, explicit product decision, not an oversight) without
+  that confirmation being sought first — flagging this here for whoever reads this doc next, since
+  it is the kind of thing that's easy to forget once the deadline pressure is gone. It shows a
+  "Powered by Nansen API" attribution regardless.
+- **Auth toggle:** `DASHBOARD_USERS_B64` set (see §4) requires a login; unset it and set
+  `ALLOW_NO_AUTH=1` instead to serve without one (both in `.env`). Either way, apply it with
+  `docker compose up -d caddy`.
+- **The `:latest` image tag gotcha:** a normal deploy always runs `docker compose` with
+  `IMAGE_TAG=<commit-sha>` (never bare `latest`), and the CD workflow retags the freshly pulled
+  image as `:latest` locally right after pulling it. If that retag is ever missing (an old
+  workflow run, or a manual pull), the *local* `:latest` tag silently stays frozen at whatever the
+  very first `docker compose up -d --build` in §6 produced — so any later manual `docker compose`
+  command that doesn't set `IMAGE_TAG` (for example, applying the auth toggle above) fetches that
+  ancient build instead of the current one, with no error. Found the hard way, right after this
+  paragraph was added: if a manual command ever visibly regresses the site, first check
+  `docker compose ps`'s IMAGE column against `.deployed-tag`, and re-run with
+  `export IMAGE_TAG=$(cat .deployed-tag)` set.
 - **Logs:** `docker compose logs -f worker`. The Nansen API key is never logged.
 
 ## 12. Stopping the costs
