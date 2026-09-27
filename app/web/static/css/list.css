@@ -1,0 +1,223 @@
+/* Token list page (UI_REDESIGN.md §5). Tokens-only, like every other stylesheet
+   (tests/unit/test_design_tokens.py). Proportional widths use a fixed set of classes
+   (.w-0 .. .w-100 in steps of 5, app/web/format.py's width_class()) instead of an inline style,
+   which the CSP and an existing test forbid. */
+
+/* --- 5.2 Summary strip --- */
+
+.summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-5);
+}
+
+.verdict-segments {
+  display: flex;
+  flex: 1 1 320px;
+  height: 32px;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.verdict-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-label-size);
+  font-weight: var(--weight-medium);
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  border-right: 1px solid var(--ink);
+  min-width: 44px;
+}
+
+.verdict-segment:last-child { border-right: 0; }
+.verdict-segment:hover, .verdict-segment:focus-visible { text-decoration: none; filter: brightness(1.15); }
+.verdict-segment[aria-current="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.verdict-segment-green { background: var(--green-tint); color: var(--green); }
+.verdict-segment-watch { background: var(--watch-tint); color: var(--watch); }
+.verdict-segment-avoid { background: var(--avoid-tint); color: var(--avoid); }
+
+.w-0 { flex-basis: 0%; flex-grow: 0; }
+.w-5 { flex-basis: 5%; flex-grow: 0; }
+.w-10 { flex-basis: 10%; flex-grow: 0; }
+.w-15 { flex-basis: 15%; flex-grow: 0; }
+.w-20 { flex-basis: 20%; flex-grow: 0; }
+.w-25 { flex-basis: 25%; flex-grow: 0; }
+.w-30 { flex-basis: 30%; flex-grow: 0; }
+.w-35 { flex-basis: 35%; flex-grow: 0; }
+.w-40 { flex-basis: 40%; flex-grow: 0; }
+.w-45 { flex-basis: 45%; flex-grow: 0; }
+.w-50 { flex-basis: 50%; flex-grow: 0; }
+.w-55 { flex-basis: 55%; flex-grow: 0; }
+.w-60 { flex-basis: 60%; flex-grow: 0; }
+.w-65 { flex-basis: 65%; flex-grow: 0; }
+.w-70 { flex-basis: 70%; flex-grow: 0; }
+.w-75 { flex-basis: 75%; flex-grow: 0; }
+.w-80 { flex-basis: 80%; flex-grow: 0; }
+.w-85 { flex-basis: 85%; flex-grow: 0; }
+.w-90 { flex-basis: 90%; flex-grow: 0; }
+.w-95 { flex-basis: 95%; flex-grow: 0; }
+.w-100 { flex-basis: 100%; flex-grow: 0; }
+
+.credit-meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  flex: 0 1 200px;
+}
+
+.credit-meter-label {
+  font-size: var(--text-label-size);
+  color: var(--text-muted);
+}
+
+/* --- 5.3 Toolbar --- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.toolbar-search {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: 1 1 260px;
+  max-width: 360px;
+  padding-inline: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.toolbar-search-icon { flex-shrink: 0; }
+
+.toolbar-search input {
+  flex: 1;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  padding-block: var(--s-2);
+}
+
+.toolbar-search input:focus-visible { outline: none; }
+.toolbar-search:focus-within { border-color: var(--accent); }
+
+.chip-clear { display: inline-flex; align-items: center; gap: var(--s-1); }
+
+/* --- 5.4 Table --- */
+
+table.tokens thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sort-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  color: inherit;
+  text-decoration: none;
+}
+
+.sort-link:hover, .sort-link:focus-visible { color: var(--text); text-decoration: none; }
+.sort-icon { width: 12px; height: 12px; }
+
+table.tokens tbody tr { height: 56px; }
+table.tokens tbody tr:hover { background: var(--surface-raised); }
+
+.token-cell { display: flex; align-items: center; gap: var(--s-3); }
+.token-cell-text { display: flex; flex-direction: column; gap: var(--s-1); }
+.token-address { color: var(--text-faint); font-size: 0.75rem; }
+
+.cell-with-meter { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-1); }
+.cell-with-meter .meter { width: 40px; }
+
+td.stale { color: var(--watch); }
+td.stale .icon { width: 12px; height: 12px; margin-right: var(--s-1); vertical-align: -1px; }
+
+/* A row whose score/verdict just changed gets a brief tint flash (§5.4) — motion that answers a
+   change, so it is allowed even though decorative motion elsewhere is not. */
+@keyframes row-changed-flash {
+  from { background: var(--surface-raised); }
+  to { background: transparent; }
+}
+
+tr.row-changed { animation: row-changed-flash 1.2s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  tr.row-changed { animation: none; }
+}
+
+/* --- Mobile (<768px): stacked cards, a 2x2 grid of the remaining facts (§5.4) ---
+   `tr` becomes a wrapping flex row instead of a block, so the Token and Verdict cells sit side
+   by side on the card's first line by construction (flex items never overlap), and the rest wrap
+   below at roughly half width each — no absolute positioning, which only invited overlap bugs. */
+@media (max-width: 767px) {
+  table.tokens, table.tokens tbody { display: block; width: 100%; }
+  table.tokens { background: none; border: 0; }
+  table.tokens thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* `table.tokens tbody tr` (not just `table.tokens tr`): the desktop row-height rule above is
+     that specific, and a lower-specificity override loses to it regardless of source order or
+     being inside a later media query — specificity, not position, decides the winner. */
+  table.tokens tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    height: auto; /* overrides the desktop row's fixed 56px, which clipped the wrapped card */
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    margin-bottom: var(--s-3);
+    padding: var(--s-4);
+  }
+
+  table.tokens td { display: block; border: 0; padding: 0; text-align: left; overflow-wrap: anywhere; }
+  table.tokens td::before { display: block; content: attr(data-label); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: var(--s-1); }
+
+  table.tokens td[data-label="Token"] {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-bottom: var(--s-3);
+  }
+  table.tokens td[data-label="Token"]::before { display: none; }
+  table.tokens td[data-label="Token"] .token-cell { align-items: center; }
+
+  table.tokens td[data-label="Verdict"] {
+    order: 2;
+    flex: 0 0 auto;
+    margin-left: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+  table.tokens td[data-label="Verdict"]::before { display: none; }
+
+  /* The 2x2-ish grid: market cap, vol/liq, bundle, smart money, score share half-width rows;
+     age and updated get a full-width row each at the end. */
+  table.tokens td[data-label="Age"] { order: 3; flex: 1 1 100%; margin-bottom: var(--s-3); }
+  table.tokens td[data-label="Market cap"],
+  table.tokens td[data-label="Vol / liq"],
+  table.tokens td[data-label="Bundle"],
+  table.tokens td[data-label="Smart money"],
+  table.tokens td[data-label="Score"] {
+    order: 4;
+    flex: 1 1 48%;
+    max-width: 48%;
+    margin-bottom: var(--s-3);
+  }
+  table.tokens td[data-label="Updated"] { order: 5; flex: 1 1 100%; }
+
+  table.tokens td.num { text-align: left; }
+  .cell-with-meter { align-items: flex-start; }
+}

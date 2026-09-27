@@ -1,6 +1,6 @@
 import hashlib
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -67,10 +67,11 @@ def test_index_lists_tokens_green_first_then_by_score(client: TestClient) -> Non
         "Token",
         "Age",
         "Market cap",
+        "Vol / liq",
         "Verdict",
         "Score",
         "Bundle",
-        "Smart wallets",
+        "Smart money",
         "Updated",
     ):
         assert f">{column}<" in body
@@ -452,3 +453,137 @@ def test_tokens_not_updated_within_a_day_are_hidden(engine: Engine) -> None:
         app.dependency_overrides.clear()
 
     assert "STALE" not in body and "DEMO-GREEN" in body
+
+
+# --- UI-3: list page (§5) ---
+
+
+def _add_token(
+    engine: Engine, address: str, symbol: str, *, deployed: datetime, updated: datetime
+) -> None:
+    from app.demo import _analysis, _candidate
+
+    with make_session_factory(engine)() as session:
+        cand = _candidate("solana", solana_address(address), symbol, deployed, 1e6)
+        token = repo.upsert_token(session, cand, datetime.now(UTC))
+        repo.save_snapshot(
+            session, token, _analysis(cand, updated, score=80, verdict="GREEN", reasons=["r"])
+        )
+
+
+def test_issue_16_a_fresh_snapshot_does_not_hide_a_token_s_real_age(engine: Engine) -> None:
+    """The exact issue 16 bug: a re-evaluation minutes ago must not mask a >24h-old token."""
+    now = datetime.now(UTC)
+    _add_token(
+        engine, "old-fresh-snap", "OLDFRESH", deployed=now - timedelta(hours=30), updated=now
+    )
+    use(make_session_factory(engine))
+    try:
+        default_body = TestClient(app).get("/").text
+        aged_body = TestClient(app).get("/?aged=1").text
+    finally:
+        app.dependency_overrides.clear()
+
+    assert "OLDFRESH" not in default_body
+    assert "OLDFRESH" in aged_body
+
+
+def test_the_aged_toggle_link_is_present_and_reflects_state(client: TestClient) -> None:
+    off = client.get("/").text
+    on = client.get("/?aged=1").text
+
+    assert 'href="/?aged=1"' in off and 'aria-pressed="false"' in off
+    assert 'href="/"' in on and 'aria-pressed="true"' in on
+
+
+def test_search_matches_symbol_and_preserves_the_term_in_the_input(client: TestClient) -> None:
+    found = client.get("/?q=green").text
+    empty = client.get("/?q=nonexistent-xyz").text
+
+    assert "DEMO-GREEN" in found and "DEMO-WATCH" not in found
+    assert 'value="green"' in found
+    assert "No tokens match these filters." in empty
+    assert 'href="/">' in empty and "Clear filters" in empty
+
+
+def test_clear_filters_link_only_appears_when_a_filter_is_active(client: TestClient) -> None:
+    plain = client.get("/").text
+    filtered = client.get("/?verdict=GREEN").text
+
+    assert "Clear filters" not in plain
+    assert "Clear filters" in filtered
+
+
+def test_sortable_headers_have_aria_sort_and_toggle_direction(client: TestClient) -> None:
+    unsorted = client.get("/").text
+    assert 'aria-sort="none"' in unsorted
+    assert 'href="/?sort=score&amp;dir=desc"' in unsorted
+
+    descending = client.get("/?sort=score&dir=desc").text
+    assert 'aria-sort="descending"' in descending
+    assert 'href="/?sort=score&amp;dir=asc"' in descending  # clicking again flips it
+
+    ascending = client.get("/?sort=score&dir=asc").text
+    assert 'aria-sort="ascending"' in ascending
+
+
+def test_sort_by_age_orders_the_rows(client: TestClient) -> None:
+    oldest_first = symbols(client.get("/?sort=age&dir=desc").text)
+    youngest_first = symbols(client.get("/?sort=age&dir=asc").text)
+
+    assert oldest_first == list(reversed(youngest_first))
+
+
+def test_the_summary_strip_shows_verdict_counts_and_a_credit_meter(client: TestClient) -> None:
+    body = client.get("/").text
+
+    assert "verdict-segment-green" in body and "verdict-segment-watch" in body
+    assert "verdict-segment-avoid" in body
+    assert "Credits" in body and "/ 3000" in body
+
+
+def test_a_verdict_segment_click_applies_the_same_filter_as_the_chip(client: TestClient) -> None:
+    body = client.get("/").text
+
+    assert 'href="/?verdict=GREEN"' in body  # both the segment and the plain chip use it
+
+
+def test_a_stale_row_is_flagged_with_the_watch_colour_and_a_clock_icon(engine: Engine) -> None:
+    now = datetime.now(UTC)
+    _add_token(
+        engine,
+        "stale-row",
+        "STALEROW",
+        deployed=now - timedelta(hours=1),
+        updated=now - timedelta(minutes=45),
+    )
+    use(make_session_factory(engine))
+    try:
+        body = TestClient(app).get("/").text
+    finally:
+        app.dependency_overrides.clear()
+
+    assert '<td data-label="Updated" class="stale">' in body
+    assert "icon" in body[body.index('data-label="Updated" class="stale"') :][:200]
+
+
+def test_chain_filter_chips_show_a_coloured_dot(client: TestClient) -> None:
+    body = client.get("/").text
+
+    assert 'href="/?chain=solana"' in body
+    assert "chain-dot chain-solana" in body
+
+
+# --- UI-3: live status indicator (§5.1), on every page ---
+
+
+def test_the_live_status_indicator_appears_on_every_page(client: TestClient) -> None:
+    for path in ("/", "/status", GREEN):
+        body = client.get(path).text
+        assert "live-dot live-dot-" in body, path
+        assert "Last scan" in body, path
+
+
+def test_no_page_has_an_inline_onclick_handler(client: TestClient) -> None:
+    for path in ("/", "/status", GREEN):
+        assert "onclick=" not in client.get(path).text, path

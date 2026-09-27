@@ -61,6 +61,37 @@ def age_since(moment: datetime | None, now: datetime | None = None) -> str:
     return f"{age(seconds / 3600)} ago"
 
 
+def width_class(pct: float) -> str:
+    """A CSS class for a proportional-width bar (summary strip segments), in steps of 5%.
+
+    A numeric width can't be an inline `style` (the CSP and a test forbid it), so it's rounded to
+    one of 21 fixed classes (components.css: .w-0 .. .w-100) instead — the same "closed set of
+    classes, never a raw value" approach as avatar_hue()/chain_class().
+    """
+    step = max(0, min(100, round(pct / 5) * 5))
+    return f"w-{step}"
+
+
+def ratio(value: float | None) -> str:
+    """UI_REDESIGN.md §5.4 "Vol / liq" column: "11.6x"; "n/a" if it can't be computed."""
+    return "n/a" if value is None else f"{value:.1f}x"
+
+
+def bundle_severity(pct: float) -> str:
+    """Meter colour for the list table's Bundle column (§5.4): under 5% muted, 5-30% watch, over
+    30% avoid — the same 30% line as the veto in config/scoring.yaml's `veto_bundle_supply_pct`."""
+    if pct >= 30:
+        return "avoid"
+    if pct >= 5:
+        return "watch"
+    return "accent"
+
+
+def verdict_meter_variant(verdict: str) -> str:
+    """Meter colour for the list table's Score column: the verdict's own colour, or neutral."""
+    return {"GREEN": "green", "WATCH": "watch", "AVOID": "avoid"}.get(verdict, "accent")
+
+
 def short_address(address: str) -> str:
     """UI_REDESIGN.md §4 address chip: "0x55db…7777" (a real ellipsis, not three periods)."""
     return address if len(address) <= 14 else f"{address[:6]}…{address[-4:]}"

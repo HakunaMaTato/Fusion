@@ -1,30 +1,70 @@
 {% extends "base.html" %}
+{% from "components/meter.html" import meter %}
+{% from "components/icons.html" import icon_search, icon_x %}
 {% set active = "tokens" %}
 {% block title %}Fresh tokens - LP Radar{% endblock %}
 {% block content %}
-<h1>Fresh tokens</h1>
-<p class="lede">Newly launched tokens that pumped, rated as liquidity-provision candidates. The table refreshes every 30 seconds.</p>
-
-<div class="filters" role="group" aria-label="Filters">
-  <div class="filter-row">
-    <span class="filter-label">Verdict</span>
-    <a class="chip" href="/{% if chain %}?chain={{ chain|urlencode }}{% endif %}" {% if not verdict %}aria-current="true"{% endif %}>All</a>
-    {% for v in verdicts %}
-    <a class="chip" href="/?verdict={{ v }}{% if chain %}&amp;chain={{ chain|urlencode }}{% endif %}" {% if verdict == v %}aria-current="true"{% endif %}>{{ v }}</a>
-    {% endfor %}
+<div class="stack">
+  <div>
+    <h1>Fresh tokens</h1>
+    <p class="lede">Tokens under 24 hours old that reached $1M, rated for liquidity provision.</p>
   </div>
-  {% if chains %}
-  <div class="filter-row">
-    <span class="filter-label">Chain</span>
-    <a class="chip" href="/{% if verdict %}?verdict={{ verdict }}{% endif %}" {% if not chain %}aria-current="true"{% endif %}>All</a>
-    {% for c in chains %}
-    <a class="chip" href="/?chain={{ c|urlencode }}{% if verdict %}&amp;verdict={{ verdict }}{% endif %}" {% if chain == c %}aria-current="true"{% endif %}>{{ c }}</a>
-    {% endfor %}
+
+  {% if summary_segments %}
+  <div class="summary-strip">
+    <div class="verdict-segments" role="group" aria-label="Verdict counts">
+      {% for v, count, width in summary_segments %}
+      <a class="verdict-segment verdict-segment-{{ v|lower }} {{ width }}" href="/{{ list_url(verdict=v if verdict != v else none) }}" aria-current="{{ 'true' if verdict == v else 'false' }}">{{ v|capitalize }} {{ count }}</a>
+      {% endfor %}
+    </div>
+    <div class="credit-meter" title="Credits used today">
+      <span class="credit-meter-label">Credits {{ credits_used }} / {{ daily_credit_budget }}</span>
+      {{ meter(credits_used, max=daily_credit_budget if daily_credit_budget else 1) }}
+    </div>
   </div>
   {% endif %}
-</div>
 
-<div id="tokens" hx-get="{{ partial_url }}" hx-trigger="every 30s" hx-swap="innerHTML">
-  {% include "_tokens_table.html" %}
+  <form class="toolbar" method="get" action="/">
+    <div class="toolbar-search">
+      {{ icon_search("icon toolbar-search-icon") }}
+      <input type="search" name="q" value="{{ search or '' }}" placeholder="Search symbol or address" aria-label="Search symbol or address">
+    </div>
+    {% if verdict %}<input type="hidden" name="verdict" value="{{ verdict }}">{% endif %}
+    {% if chain %}<input type="hidden" name="chain" value="{{ chain }}">{% endif %}
+    {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+    {% if sort %}<input type="hidden" name="dir" value="{{ sort_dir }}">{% endif %}
+    {% if aged %}<input type="hidden" name="aged" value="1">{% endif %}
+  </form>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <div class="filter-row">
+      <span class="filter-label">Verdict</span>
+      <a class="chip" href="/{{ list_url(verdict=none) }}" aria-current="{{ 'true' if not verdict else 'false' }}">All</a>
+      {% for v in verdicts %}
+      <a class="chip" href="/{{ list_url(verdict=v) }}" aria-current="{{ 'true' if verdict == v else 'false' }}">{{ v|capitalize }}</a>
+      {% endfor %}
+    </div>
+    {% if chains %}
+    <div class="filter-row">
+      <span class="filter-label">Chain</span>
+      <a class="chip" href="/{{ list_url(chain=none) }}" aria-current="{{ 'true' if not chain else 'false' }}">All</a>
+      {% for c in chains %}
+      <a class="chip" href="/{{ list_url(chain=c) }}" aria-current="{{ 'true' if chain == c else 'false' }}"><span class="chain-dot {{ c|chain_class }}"></span>{{ c|chain_label }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="filter-row">
+      <a class="chip" href="/{{ list_url(aged='1' if not aged else none) }}" aria-pressed="{{ 'true' if aged else 'false' }}">
+        {% if aged %}{{ icon_x("icon") }}{% endif %}Include tokens over 24h
+      </a>
+      {% if verdict or chain or search or aged %}
+      <a class="chip chip-clear" href="/">{{ icon_x("icon") }}Clear filters</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="tokens" hx-get="{{ partial_url }}" hx-trigger="every 30s" hx-swap="innerHTML">
+    {% include "_tokens_table.html" %}
+  </div>
 </div>
 {% endblock %}

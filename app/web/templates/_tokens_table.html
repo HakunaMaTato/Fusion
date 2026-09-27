@@ -1,6 +1,19 @@
 {% from "components/avatar.html" import token_avatar %}
 {% from "components/chain.html" import chain_chip %}
 {% from "components/verdict.html" import verdict_pill %}
+{% from "components/meter.html" import meter %}
+{% from "components/icons.html" import icon_chevron_up, icon_chevron_down, icon_clock, icon_x %}
+
+{% macro sort_th(label, key, class_="") %}
+{# A real <a>, not a <button onclick>: this app works with JS disabled and never uses inline
+   event-handler attributes (an existing test forbids "onclick=", matching the CSP). It is still
+   keyboard-reachable and has aria-sort, which is the part §5.4 actually needs. #}
+{% set is_active = sort == key %}
+<th scope="col" class="{{ class_ }}" aria-sort="{{ "ascending" if is_active and sort_dir == "asc" else ("descending" if is_active else "none") }}">
+  <a class="sort-link" href="/{{ list_url(sort=key, dir="asc" if is_active and sort_dir == "desc" else "desc") }}">{{ label }}{% if is_active %}{{ icon_chevron_up("icon sort-icon") if sort_dir == "asc" else icon_chevron_down("icon sort-icon") }}{% endif %}</a>
+</th>
+{% endmacro %}
+
 {% if unavailable %}
 <p class="empty">No data yet. The worker has not produced any results, or the data is temporarily unavailable.</p>
 {% elif rows %}
@@ -8,34 +21,43 @@
   <thead>
     <tr>
       <th scope="col">Token</th>
-      <th scope="col">Age</th>
-      <th scope="col" class="num">Market cap</th>
+      {{ sort_th("Age", "age") }}
+      {{ sort_th("Market cap", "market_cap", "num") }}
+      {{ sort_th("Vol / liq", "vol_liq", "num") }}
+      {{ sort_th("Bundle", "bundle", "num") }}
+      {{ sort_th("Smart money", "smart_wallets", "num") }}
+      {{ sort_th("Score", "score", "num") }}
       <th scope="col">Verdict</th>
-      <th scope="col" class="num">Score</th>
-      <th scope="col" class="num">Bundle</th>
-      <th scope="col" class="num">Smart wallets</th>
-      <th scope="col">Updated</th>
+      {{ sort_th("Updated", "updated") }}
     </tr>
   </thead>
   <tbody>
     {% for r in rows %}
     <tr>
-      <td data-label="Token">
+      <td data-label="Token" class="token-cell">
         {{ token_avatar(r.address, r.symbol, r.chain) }}
-        <a class="token-link" href="/token/{{ r.chain|urlencode }}/{{ r.address|urlencode }}">{{ r.symbol }}</a>
-        {{ chain_chip(r.chain) }}
+        <span class="token-cell-text">
+          <a class="token-link" href="/token/{{ r.chain|urlencode }}/{{ r.address|urlencode }}">{{ r.symbol }}</a>
+          {{ chain_chip(r.chain) }}
+          <span class="mono token-address">{{ r.address|short }}</span>
+        </span>
       </td>
       <td data-label="Age">{{ r.age_hours|age }}</td>
       <td data-label="Market cap" class="num">{{ r.market_cap_usd|money }}</td>
+      <td data-label="Vol / liq" class="num">{{ r.vol_liq_ratio|ratio }}</td>
+      <td data-label="Bundle" class="num">
+        <span class="cell-with-meter">{{ r.bundle_supply_pct|percent }}{{ meter(r.bundle_supply_pct, variant=r.bundle_severity) }}</span>
+      </td>
+      <td data-label="Smart money" class="num">{% if r.sm_wallets %}{{ r.sm_wallets }}{% else %}<span class="value-empty">&mdash;</span>{% endif %}</td>
+      <td data-label="Score" class="num">
+        <span class="cell-with-meter">{{ "%.0f"|format(r.score) }}{{ meter(r.score, variant=r.score_variant) }}</span>
+      </td>
       <td data-label="Verdict">{{ verdict_pill(r.verdict, "sm") }}</td>
-      <td data-label="Score" class="num">{{ "%.0f"|format(r.score) }}</td>
-      <td data-label="Bundle" class="num">{{ r.bundle_supply_pct|percent }}</td>
-      <td data-label="Smart wallets" class="num">{{ r.sm_wallets }}</td>
-      <td data-label="Updated">{{ r.updated_at|ago(now) }}</td>
+      <td data-label="Updated"{% if r.stale %} class="stale"{% endif %}>{% if r.stale %}{{ icon_clock("icon") }}{% endif %}{{ r.updated_at|ago(now) }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% else %}
-<p class="empty">No tokens match. Either nothing has been analysed yet or the filters are too narrow.</p>
+<p class="empty">No tokens match these filters. <a class="chip chip-clear" href="/">{{ icon_x("icon") }}Clear filters</a></p>
 {% endif %}

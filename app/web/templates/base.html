@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/static/css/type.css">
   <link rel="stylesheet" href="/static/css/layout.css">
   <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/list.css">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/js/address-chip.js" defer></script>
@@ -19,11 +20,24 @@
 <body>
   <header class="site-header">
     <div class="wrap header-row">
-      <a class="brand" href="/">LP Radar</a>
+      <a class="brand" href="/">
+        <svg class="brand-mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.35"/>
+          <circle cx="10" cy="10" r="5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"/>
+          <circle cx="10" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+          <line x1="10" y1="10" x2="10" y2="2" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="14.2" cy="5.8" r="1.4" fill="var(--accent)"/>
+        </svg>
+        LP Radar
+      </a>
       <nav aria-label="Main">
         <a href="/" {% if active == "tokens" %}aria-current="page"{% endif %}>Tokens</a>
         <a href="/status" {% if active == "status" %}aria-current="page"{% endif %}>Status</a>
       </nav>
+      <div class="live-status" title="Worker heartbeat">
+        <span class="live-dot live-dot-{{ heartbeat_class|default('avoid') }}" aria-hidden="true"></span>
+        <span class="live-status-text">{% if last_scan is defined and last_scan and now is defined %}Last scan {{ last_scan|ago(now) }}{% else %}Last scan unknown{% endif %}</span>
+      </div>
     </div>
   </header>
   <main class="wrap">
