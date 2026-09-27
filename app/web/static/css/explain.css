@@ -1,0 +1,73 @@
+/* "How it works" page. Tokens-only, like every other stylesheet (tests/unit/test_design_tokens.py). */
+
+.funnel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.funnel-step {
+  width: 100%;
+  text-align: center;
+}
+
+.funnel-step-number {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-label-size);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.funnel-step-title {
+  margin: var(--s-1) 0 0;
+  font-size: var(--text-subsection-size);
+  font-weight: var(--weight-semibold);
+}
+
+.funnel-step-body {
+  margin: var(--s-1) 0 0;
+  color: var(--text-muted);
+}
+
+.funnel-arrow {
+  width: 20px;
+  height: 20px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.explain-dl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin: 0;
+}
+
+.explain-dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.explain-dl dt {
+  font-weight: var(--weight-semibold);
+}
+
+.explain-dl dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+@media (min-width: 768px) {
+  .explain-glossary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--s-6);
+    row-gap: var(--s-4);
+  }
+}

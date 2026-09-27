@@ -384,6 +384,24 @@ def test_unknown_or_malformed_tokens_are_a_generic_404(client: TestClient, path:
     assert "Traceback" not in response.text
 
 
+# --- explain ---
+
+
+def test_explain_page_renders_the_glossary_and_funnel(client: TestClient) -> None:
+    body = client.get("/explain").text
+
+    assert "How LP Radar works" in body
+    assert "Bundle" in body and "Smart Money" in body and "Veto" in body  # glossary terms
+    assert "Discovery" in body and "Cross-check" in body  # funnel steps
+    assert 'href="/explain"' in body
+
+
+def test_explain_link_appears_in_the_main_nav(client: TestClient) -> None:
+    body = client.get("/").text
+
+    assert 'href="/explain"' in body and "How it works" in body
+
+
 # --- status ---
 
 
