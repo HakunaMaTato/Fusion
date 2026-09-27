@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     database_url: str = "sqlite:////data/lp-radar.db"
-    dashboard_basic_auth: str = ""
     log_level: str = "INFO"
     dashboard_base_url: str = ""
 
