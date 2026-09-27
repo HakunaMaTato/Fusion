@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -173,18 +173,37 @@ def last_analysis_at(session: Session) -> datetime | None:
     return session.scalar(select(func.max(SnapshotRow.created_at)))
 
 
-def list_tokens(
+SORT_KEYS = ("score", "age", "market_cap", "vol_liq", "bundle", "smart_wallets", "updated")
+
+
+def _sort_key(pair: tuple[TokenRow, SnapshotRow], sort: str, now: datetime) -> float:
+    token, snapshot = pair
+    if sort == "age":
+        return (now - token.deployed_at).total_seconds() if token.deployed_at else -1.0
+    if sort == "market_cap":
+        return snapshot.market_cap_usd if snapshot.market_cap_usd is not None else -1.0
+    if sort == "vol_liq":
+        if snapshot.volume_usd is None or not snapshot.liquidity_usd:
+            return -1.0
+        return snapshot.volume_usd / snapshot.liquidity_usd
+    if sort == "bundle":
+        return snapshot.bundle_supply_pct
+    if sort == "smart_wallets":
+        return float(snapshot.smart_money.get("wallet_count", 0))
+    if sort == "updated":
+        return snapshot.created_at.timestamp()
+    return snapshot.score
+
+
+def _filtered_tokens(
     session: Session,
     *,
-    verdict: str | None = None,
-    chain: str | None = None,
-    updated_since: datetime | None = None,
-    limit: int = 200,
+    verdict: str | None,
+    chain: str | None,
+    updated_since: datetime | None,
+    search: str | None,
+    min_deployed_at: datetime | None,
 ) -> list[tuple[TokenRow, SnapshotRow]]:
-    """Each token with its latest snapshot: GREEN first, then WATCH, then AVOID, by score.
-
-    `updated_since` hides tokens whose latest snapshot is older, so stale verdicts drop off.
-    """
     latest = select(func.max(SnapshotRow.id)).group_by(SnapshotRow.token_id).scalar_subquery()
     stmt = (
         select(TokenRow, SnapshotRow)
@@ -197,9 +216,80 @@ def list_tokens(
         stmt = stmt.where(TokenRow.chain == chain)
     if updated_since is not None:
         stmt = stmt.where(SnapshotRow.created_at >= updated_since)
-    rows = [(token, snapshot) for token, snapshot in session.execute(stmt)]
-    rows.sort(key=lambda pair: (VERDICT_ORDER.get(pair[1].verdict, 3), -pair[1].score))
+    if min_deployed_at is not None:
+        # A token with no deployed_at is never hidden by the age filter: there is nothing to
+        # measure its age against, so treating "unknown" as "too old" would be a guess.
+        stmt = stmt.where(
+            (TokenRow.deployed_at >= min_deployed_at) | (TokenRow.deployed_at.is_(None))
+        )
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.where(TokenRow.symbol.ilike(like) | TokenRow.token_address.ilike(like))
+    return [(token, snapshot) for token, snapshot in session.execute(stmt)]
+
+
+def list_tokens(
+    session: Session,
+    *,
+    verdict: str | None = None,
+    chain: str | None = None,
+    updated_since: datetime | None = None,
+    search: str | None = None,
+    min_deployed_at: datetime | None = None,
+    sort: str | None = None,
+    sort_dir: str = "desc",
+    now: datetime | None = None,
+    limit: int = 200,
+) -> list[tuple[TokenRow, SnapshotRow]]:
+    """Each token with its latest snapshot.
+
+    Default order is GREEN first, then WATCH, then AVOID, by score; `sort` (one of `SORT_KEYS`)
+    switches to a plain column sort instead, `sort_dir` "asc" or "desc".
+
+    `updated_since` hides tokens whose latest snapshot is older (a staleness cutoff); `search`
+    matches the symbol or address; `min_deployed_at` hides tokens deployed before it (issue 16:
+    this is the token's real age, distinct from `updated_since`, which is about the snapshot).
+    """
+    rows = _filtered_tokens(
+        session,
+        verdict=verdict,
+        chain=chain,
+        updated_since=updated_since,
+        search=search,
+        min_deployed_at=min_deployed_at,
+    )
+    if sort is None:
+        rows.sort(key=lambda pair: (VERDICT_ORDER.get(pair[1].verdict, 3), -pair[1].score))
+    else:
+        rows.sort(
+            key=lambda pair: _sort_key(pair, sort, now or datetime.now(UTC)),
+            reverse=sort_dir != "asc",
+        )
     return rows[:limit]
+
+
+def verdict_counts(
+    session: Session,
+    *,
+    chain: str | None = None,
+    min_deployed_at: datetime | None = None,
+) -> dict[str, int]:
+    """How many currently-listed tokens have each verdict, ignoring the verdict filter itself.
+
+    Powers the list page's clickable verdict-count summary bar.
+    """
+    rows = _filtered_tokens(
+        session,
+        verdict=None,
+        chain=chain,
+        updated_since=None,
+        search=None,
+        min_deployed_at=min_deployed_at,
+    )
+    counts = {v: 0 for v in VERDICT_ORDER}
+    for _, snapshot in rows:
+        counts[snapshot.verdict] = counts.get(snapshot.verdict, 0) + 1
+    return counts
 
 
 def list_chains(session: Session) -> list[str]:

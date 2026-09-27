@@ -38,8 +38,30 @@ h2 { font-size: 1.2rem; margin: var(--s-6) 0 var(--s-2); }
 h3 { font-size: 1rem; margin: var(--s-4) 0 var(--s-1); }
 
 .site-header { background: var(--surface); border-bottom: 1px solid var(--line); }
-.header-row { display: flex; align-items: center; justify-content: space-between; min-height: 56px; }
-.brand { font-weight: var(--weight-semibold); font-size: 1.1rem; color: var(--text); text-decoration: none; }
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); min-height: 56px; }
+.brand { display: inline-flex; align-items: center; gap: var(--s-2); font-weight: var(--weight-semibold); font-size: 1.1rem; color: var(--text); text-decoration: none; }
+.brand-mark { width: 22px; height: 22px; color: var(--text-muted); flex-shrink: 0; }
+
+.live-status { display: inline-flex; align-items: center; gap: var(--s-2); color: var(--text-muted); font-size: var(--text-label-size); white-space: nowrap; }
+
+.live-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.live-dot-ok { background: var(--green); animation: live-pulse 2.4s ease-in-out infinite; }
+.live-dot-watch { background: var(--watch); }
+.live-dot-avoid { background: var(--avoid); }
+
+/* The header's live dot is the app's only ambient (non-response) animation. */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot-ok { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .live-status-text { display: none; } /* the dot alone fits a phone header; the text does not */
+}
 nav { display: flex; gap: var(--s-1); }
 nav a { padding: var(--s-2) var(--s-3); border-radius: var(--radius-control); color: var(--text-muted); text-decoration: none; }
 nav a[aria-current="page"] { background: var(--surface-raised); color: var(--text); font-weight: var(--weight-semibold); }
@@ -56,7 +78,7 @@ nav a[aria-current="page"] { background: var(--surface-raised); color: var(--tex
 .veto { color: var(--avoid); font-weight: var(--weight-semibold); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 
-.filters { display: grid; gap: var(--s-2); margin: 0 0 var(--s-4); }
+.filters { display: grid; gap: var(--s-2); }
 .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .filter-label { color: var(--text-muted); font-size: 0.875rem; min-width: 56px; }
 .chip { padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--radius-pill); background: var(--surface); color: var(--text); text-decoration: none; font-size: 0.9rem; }
@@ -99,25 +121,9 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 .tag { display: inline-block; background: var(--surface-raised); border-radius: var(--radius-chip); padding: var(--s-1) var(--s-2); margin-right: var(--s-2); font-size: 0.85rem; color: var(--text); }
 .wallets { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
 
+/* The mobile <768px card layout for table.tokens itself lives in list.css (§5.4), alongside the
+   rest of the list page's responsive rules, not here. */
 @media (max-width: 640px) {
   h1 { font-size: 1.35rem; }
   .filter-label { min-width: 100%; }
-
-  table.tokens, table.tokens tbody, table.tokens tr, table.tokens td { display: block; width: 100%; }
-  table.tokens { background: none; border: 0; }
-  table.tokens thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  table.tokens tr {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--s-3) var(--s-3);
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-panel);
-    margin: 0 0 var(--s-3);
-    padding: var(--s-3) var(--s-4);
-  }
-  table.tokens td { display: block; border: 0; padding: 0; text-align: left; min-width: 0; overflow-wrap: anywhere; }
-  table.tokens td::before { display: block; content: attr(data-label); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
-  table.tokens td:first-child { grid-column: 1 / -1; font-size: 1.05rem; }
-  table.tokens td:first-child::before { display: none; }
 }

@@ -310,3 +310,137 @@ def test_list_tokens_hides_stale_snapshots(session: Session) -> None:
 
     assert [t.token_address for t, _ in rows] == ["fresh"]
     assert len(repo.list_tokens(session)) == 2
+
+
+# --- issue 16: real deployment age, not just snapshot freshness ---
+
+
+def test_list_tokens_hides_tokens_deployed_before_the_cutoff(session: Session) -> None:
+    old = candidate("old", deployed=NOW - timedelta(hours=30))
+    fresh = candidate("fresh", deployed=NOW - timedelta(hours=1))
+    repo.save_snapshot(session, repo.upsert_token(session, old, NOW), analysis(old, "GREEN", NOW))
+    repo.save_snapshot(
+        session, repo.upsert_token(session, fresh, NOW), analysis(fresh, "GREEN", NOW)
+    )
+
+    rows = repo.list_tokens(session, min_deployed_at=NOW - timedelta(hours=24))
+
+    assert [t.token_address for t, _ in rows] == ["fresh"]
+    assert len(repo.list_tokens(session)) == 2  # no cutoff: both are listed
+
+
+def test_a_stale_but_recently_reevaluated_token_is_still_hidden_by_age(session: Session) -> None:
+    """The exact issue 16 bug: a snapshot from minutes ago must not hide the token's real age."""
+    old = candidate("old", deployed=NOW - timedelta(hours=30))
+    repo.save_snapshot(
+        session,
+        repo.upsert_token(session, old, NOW),
+        analysis(old, "GREEN", NOW - timedelta(minutes=1)),
+    )
+
+    rows = repo.list_tokens(session, min_deployed_at=NOW - timedelta(hours=24))
+
+    assert rows == []
+
+
+def test_a_token_with_no_deployment_date_is_never_hidden_by_the_age_cutoff(
+    session: Session,
+) -> None:
+    unknown = candidate("unknown", deployed=None)
+    repo.save_snapshot(
+        session, repo.upsert_token(session, unknown, NOW), analysis(unknown, "GREEN", NOW)
+    )
+
+    rows = repo.list_tokens(session, min_deployed_at=NOW - timedelta(hours=24))
+
+    assert [t.token_address for t, _ in rows] == ["unknown"]
+
+
+# --- search ---
+
+
+def test_list_tokens_search_matches_symbol_or_address_case_insensitively(
+    session: Session,
+) -> None:
+    cand = Candidate(
+        chain="solana",
+        token_address="AbCdEf123",
+        token_symbol="WIRED",
+        token_age_hours=1.0,
+        market_cap_usd=1e6,
+        token_deployment_date=NOW - timedelta(hours=1),
+    )
+    repo.save_snapshot(session, repo.upsert_token(session, cand, NOW), analysis(cand, "GREEN", NOW))
+    _add(session, "other", "WATCH", 40)
+
+    assert [t.symbol for t, _ in repo.list_tokens(session, search="wired")] == ["WIRED"]
+    assert [t.symbol for t, _ in repo.list_tokens(session, search="abcdef")] == ["WIRED"]
+    assert repo.list_tokens(session, search="nope") == []
+
+
+# --- sort ---
+
+
+def test_list_tokens_sort_by_age_and_direction(session: Session) -> None:
+    younger = candidate("younger", deployed=NOW - timedelta(hours=1))
+    older = candidate("older", deployed=NOW - timedelta(hours=10))
+    repo.save_snapshot(
+        session, repo.upsert_token(session, younger, NOW), analysis(younger, "GREEN", NOW)
+    )
+    repo.save_snapshot(
+        session, repo.upsert_token(session, older, NOW), analysis(older, "GREEN", NOW)
+    )
+
+    oldest_first = repo.list_tokens(session, sort="age", sort_dir="desc", now=NOW)
+    youngest_first = repo.list_tokens(session, sort="age", sort_dir="asc", now=NOW)
+
+    assert [t.token_address for t, _ in oldest_first] == ["older", "younger"]
+    assert [t.token_address for t, _ in youngest_first] == ["younger", "older"]
+
+
+def test_list_tokens_sort_by_smart_wallets_reads_the_json_field(session: Session) -> None:
+    many = candidate("many")
+    few = candidate("few")
+    many_result = analysis(many, "GREEN", NOW)
+    many_result.smart_money.wallet_count = 9
+    few_result = analysis(few, "GREEN", NOW)
+    few_result.smart_money.wallet_count = 1
+    repo.save_snapshot(session, repo.upsert_token(session, many, NOW), many_result)
+    repo.save_snapshot(session, repo.upsert_token(session, few, NOW), few_result)
+
+    rows = repo.list_tokens(session, sort="smart_wallets", sort_dir="desc")
+
+    assert [t.token_address for t, _ in rows] == ["many", "few"]
+
+
+def test_list_tokens_default_sort_is_unaffected_by_the_sort_parameter_being_absent(
+    session: Session,
+) -> None:
+    _add(session, "a", "AVOID", 99)
+    _add(session, "b", "GREEN", 1)
+
+    assert [t.token_address for t, _ in repo.list_tokens(session)] == ["b", "a"]
+
+
+# --- verdict counts ---
+
+
+def test_verdict_counts_ignores_the_verdict_filter_itself(session: Session) -> None:
+    _add(session, "a", "GREEN", 90)
+    _add(session, "b", "GREEN", 80)
+    _add(session, "c", "WATCH", 50)
+    _add(session, "d", "AVOID", 10, chain="base")
+
+    assert repo.verdict_counts(session) == {"GREEN": 2, "WATCH": 1, "AVOID": 1}
+    assert repo.verdict_counts(session, chain="base") == {"GREEN": 0, "WATCH": 0, "AVOID": 1}
+
+
+def test_verdict_counts_respects_the_age_cutoff(session: Session) -> None:
+    old = candidate("old", deployed=NOW - timedelta(hours=30))
+    repo.save_snapshot(session, repo.upsert_token(session, old, NOW), analysis(old, "GREEN", NOW))
+
+    assert repo.verdict_counts(session, min_deployed_at=NOW - timedelta(hours=24)) == {
+        "GREEN": 0,
+        "WATCH": 0,
+        "AVOID": 0,
+    }

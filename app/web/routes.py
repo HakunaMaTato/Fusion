@@ -9,6 +9,8 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from jinja2 import pass_context
+from jinja2.runtime import Context
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -24,9 +26,13 @@ from app.web.links import NANSEN_APP_URL, token_explorer_url, wallet_explorer_ur
 logger = logging.getLogger(__name__)
 
 VERDICTS = ("GREEN", "WATCH", "AVOID")
+HEARTBEAT_WATCH_AGE = timedelta(minutes=3)
 HEARTBEAT_MAX_AGE = timedelta(minutes=5)
+TABLE_STALE_AFTER = timedelta(minutes=30)  # §5.4: "Updated" turns --watch after this
 _CHAIN = re.compile(r"^[a-z0-9_-]{1,32}$")
 _ADDRESS = re.compile(r"^[A-Za-z0-9]{1,128}$")
+_SORT_DIRS = ("asc", "desc")
+_SEARCH_MAX_LEN = 128
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 templates.env.filters.update(
@@ -34,6 +40,7 @@ templates.env.filters.update(
     percent=fmt.percent,
     usd=fmt.usd,
     pct=fmt.pct,
+    ratio=fmt.ratio,
     age=fmt.age,
     ago=fmt.age_since,
     short=fmt.short_address,
@@ -43,7 +50,32 @@ templates.env.filters.update(
     chain_label=fmt.chain_label,
     avatar_hue=fmt.avatar_hue,
 )
-templates.env.globals.update(wallet_url=wallet_explorer_url)
+
+
+@pass_context
+def _list_url(context: Context, **overrides: object) -> str:
+    """A "/" or "/partials/tokens"-relative query string for the list page's filters and sort.
+
+    Starts from the CURRENT filter state in the template context (set by _table_context below)
+    and applies `overrides`; a `None` override removes that key. Keeps every filter/sort/search
+    link in index.html and _tokens_table.html from having to hand-build a query string that
+    remembers every other active filter (§5.3: "All filter and sort state lives in URL query
+    parameters").
+    """
+    values: dict[str, object] = {
+        "verdict": context.get("verdict"),
+        "chain": context.get("chain"),
+        "q": context.get("search"),
+        "sort": context.get("sort"),
+        "dir": context.get("sort_dir") if context.get("sort") else None,
+        "aged": "1" if context.get("aged") else None,
+    }
+    values.update(overrides)
+    query = {str(k): v for k, v in values.items() if v}
+    return f"?{urlencode(query)}" if query else ""
+
+
+templates.env.globals.update(wallet_url=wallet_explorer_url, list_url=_list_url)
 
 router = APIRouter()
 SessionFactory = Callable[[], Session]
@@ -56,11 +88,21 @@ class TokenRowView:
     symbol: str
     age_hours: float | None
     market_cap_usd: float | None
+    vol_liq_ratio: float | None
     verdict: str
     score: float
+    score_variant: str
     bundle_supply_pct: float
+    bundle_severity: str
     sm_wallets: int
     updated_at: datetime
+    stale: bool
+
+
+def _vol_liq_ratio(volume_usd: float | None, liquidity_usd: float | None) -> float | None:
+    if volume_usd is None or not liquidity_usd:
+        return None
+    return volume_usd / liquidity_usd
 
 
 def _row_view(token: TokenRow, snapshot: SnapshotRow, now: datetime) -> TokenRowView:
@@ -71,12 +113,35 @@ def _row_view(token: TokenRow, snapshot: SnapshotRow, now: datetime) -> TokenRow
         symbol=token.symbol,
         age_hours=age,
         market_cap_usd=snapshot.market_cap_usd,
+        vol_liq_ratio=_vol_liq_ratio(snapshot.volume_usd, snapshot.liquidity_usd),
         verdict=snapshot.verdict,
         score=snapshot.score,
+        score_variant=fmt.verdict_meter_variant(snapshot.verdict),
         bundle_supply_pct=snapshot.bundle_supply_pct,
+        bundle_severity=fmt.bundle_severity(snapshot.bundle_supply_pct),
         sm_wallets=int(snapshot.smart_money.get("wallet_count", 0)),
         updated_at=snapshot.created_at,
+        stale=now - snapshot.created_at > TABLE_STALE_AFTER,
     )
+
+
+@dataclass
+class HeaderStatus:
+    """Feeds the header's live status indicator (§5.1) on every page, not just /status."""
+
+    heartbeat_class: str  # "ok" | "watch" | "avoid", per HEARTBEAT_WATCH_AGE / HEARTBEAT_MAX_AGE
+    last_scan: datetime | None
+
+
+def _header_status(session: Session, now: datetime) -> HeaderStatus:
+    beat = repo.last_beat(session)
+    if beat is None or now - beat > HEARTBEAT_MAX_AGE:
+        heartbeat_class = "avoid"
+    elif now - beat > HEARTBEAT_WATCH_AGE:
+        heartbeat_class = "watch"
+    else:
+        heartbeat_class = "ok"
+    return HeaderStatus(heartbeat_class=heartbeat_class, last_scan=repo.last_discovery_at(session))
 
 
 def render(
@@ -89,28 +154,68 @@ def error_page(request: Request, status: int, message: str) -> HTMLResponse:
     return render(request, "error.html", {"status": status, "message": message}, status)
 
 
-def _filters(verdict: str | None, chain: str | None) -> tuple[str | None, str | None]:
+def _filters(
+    verdict: str | None,
+    chain: str | None,
+    search: str | None,
+    sort: str | None,
+    sort_dir: str | None,
+) -> tuple[str | None, str | None, str | None, str | None, str]:
+    search = search.strip()[:_SEARCH_MAX_LEN] if search else None
     return (
         verdict if verdict in VERDICTS else None,
         chain if chain is not None and _CHAIN.match(chain) else None,
+        search or None,
+        sort if sort in repo.SORT_KEYS else None,
+        sort_dir if sort_dir in _SORT_DIRS else "desc",
     )
 
 
 def _table_context(
-    open_session: SessionFactory, verdict: str | None, chain: str | None
+    open_session: SessionFactory,
+    verdict: str | None,
+    chain: str | None,
+    search: str | None,
+    sort: str | None,
+    sort_dir: str | None,
+    aged: bool,
 ) -> dict[str, object]:
-    verdict, chain = _filters(verdict, chain)
-    query = {k: v for k, v in (("verdict", verdict), ("chain", chain)) if v}
+    verdict, chain, search, sort, sort_dir = _filters(verdict, chain, search, sort, sort_dir)
+    query = {
+        k: v
+        for k, v in (
+            ("verdict", verdict),
+            ("chain", chain),
+            ("q", search),
+            ("sort", sort),
+            ("dir", sort_dir if sort else None),
+            ("aged", "1" if aged else None),
+        )
+        if v
+    }
     now = datetime.now(UTC)
+    max_age_hours = load_scoring_config().discovery.max_age_hours
+    min_deployed_at = None if aged else now - timedelta(hours=max_age_hours)
     context: dict[str, object] = {
         "rows": [],
         "chains": [],
+        "counts": {v: 0 for v in VERDICTS},
+        "summary_segments": [],
+        "total_listed": 0,
         "verdict": verdict,
         "chain": chain,
+        "search": search,
+        "sort": sort,
+        "sort_dir": sort_dir,
+        "aged": aged,
         "verdicts": VERDICTS,
         "unavailable": False,
         "partial_url": "/partials/tokens" + (f"?{urlencode(query)}" if query else ""),
         "now": now,
+        "credits_used": 0,
+        "daily_credit_budget": 0,
+        "heartbeat_class": "avoid",
+        "last_scan": None,
     }
     try:
         with open_session() as session:
@@ -118,10 +223,27 @@ def _table_context(
                 session,
                 verdict=verdict,
                 chain=chain,
-                updated_since=now - timedelta(hours=load_scoring_config().discovery.max_age_hours),
+                search=search,
+                min_deployed_at=min_deployed_at,
+                sort=sort,
+                sort_dir=sort_dir,
+                now=now,
             )
             context["rows"] = [_row_view(token, snapshot, now) for token, snapshot in rows]
             context["chains"] = repo.list_chains(session)
+            counts = repo.verdict_counts(session, chain=chain, min_deployed_at=min_deployed_at)
+            context["counts"] = counts
+            total = sum(counts.values())
+            context["summary_segments"] = [
+                (v, counts[v], fmt.width_class(100 * counts[v] / total))
+                for v in VERDICTS
+                if counts[v]
+            ]
+            context["total_listed"] = total
+            context["credits_used"] = repo.get_credits_used(session, now.date())
+            status = _header_status(session, now)
+            context["heartbeat_class"] = status.heartbeat_class
+            context["last_scan"] = status.last_scan
     except SQLAlchemyError:
         logger.exception("dashboard could not read the token list")
         context["unavailable"] = True
@@ -133,9 +255,16 @@ def index(
     request: Request,
     verdict: str | None = None,
     chain: str | None = None,
+    q: str | None = None,
+    sort: str | None = None,
+    dir: str | None = None,  # noqa: A002 - the query param name the URL/spec uses
+    aged: bool = False,
     open_session: SessionFactory = Depends(get_session_factory),
+    settings: Settings = Depends(get_settings),
 ) -> HTMLResponse:
-    return render(request, "index.html", _table_context(open_session, verdict, chain))
+    context = _table_context(open_session, verdict, chain, q, sort, dir, aged)
+    context["daily_credit_budget"] = settings.daily_credit_budget
+    return render(request, "index.html", context)
 
 
 @router.get("/partials/tokens", response_class=HTMLResponse)
@@ -143,9 +272,17 @@ def tokens_partial(
     request: Request,
     verdict: str | None = None,
     chain: str | None = None,
+    q: str | None = None,
+    sort: str | None = None,
+    dir: str | None = None,  # noqa: A002
+    aged: bool = False,
     open_session: SessionFactory = Depends(get_session_factory),
 ) -> HTMLResponse:
-    return render(request, "_tokens_table.html", _table_context(open_session, verdict, chain))
+    return render(
+        request,
+        "_tokens_table.html",
+        _table_context(open_session, verdict, chain, q, sort, dir, aged),
+    )
 
 
 @dataclass
@@ -175,19 +312,21 @@ def token_page(
     if not _CHAIN.match(chain) or not _ADDRESS.match(address):
         return error_page(request, 404, "Token not found.")
     scoring = load_scoring_config().scoring
+    now = datetime.now(UTC)
+    header_status = HeaderStatus(heartbeat_class="avoid", last_scan=None)
     try:
         with open_session() as session:
             token = repo.find_token(session, chain, address)
             history = repo.snapshot_history(session, token.id) if token is not None else []
             latest = history[-1] if history else None
             clusters = [_cluster_view(c) for c in latest.clusters] if latest else []
+            header_status = _header_status(session, now)
     except SQLAlchemyError:
         logger.exception("dashboard could not read a token")
         return error_page(request, 503, "Data is temporarily unavailable.")
     if token is None or latest is None:
         return error_page(request, 404, "Token not found.")
 
-    now = datetime.now(UTC)
     chart = score_history_svg(
         [ScorePoint(s.created_at, s.score, s.verdict) for s in history],
         watch_min=scoring.watch_min,
@@ -209,6 +348,8 @@ def token_page(
             "explorer_url": token_explorer_url(chain, address),
             "nansen_url": NANSEN_APP_URL,
             "now": now,
+            "heartbeat_class": header_status.heartbeat_class,
+            "last_scan": header_status.last_scan,
         },
     )
 
@@ -232,6 +373,8 @@ def status(
         "last_analysis": None,
         "now": now,
         "mode": settings.nansen_mode,
+        "heartbeat_class": "avoid",
+        "last_scan": None,
     }
     try:
         with open_session() as session:
@@ -240,6 +383,7 @@ def status(
             context["beat"] = beat
             context["last_discovery"] = repo.last_discovery_at(session)
             context["last_analysis"] = repo.last_analysis_at(session)
+            context["last_scan"] = context["last_discovery"]
     except SQLAlchemyError:
         logger.exception("dashboard could not read the status")
         context["db_ok"] = False
@@ -247,10 +391,13 @@ def status(
     if beat is None:
         context["health"] = "no worker heartbeat"
         context["health_class"] = "verdict-avoid"
+        context["heartbeat_class"] = "avoid"
     elif now - beat > HEARTBEAT_MAX_AGE:
         context["health"] = "worker heartbeat is stale"
         context["health_class"] = "verdict-avoid"
+        context["heartbeat_class"] = "avoid"
     else:
         context["health"] = "worker is healthy"
         context["health_class"] = "verdict-green"
+        context["heartbeat_class"] = "watch" if now - beat > HEARTBEAT_WATCH_AGE else "ok"
     return render(request, "status.html", context)
