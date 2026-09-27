@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon_check_circle, icon_eye, icon_alert_triangle, icon_chevron_down %}
+{% set active = "explain" %}
+{% block title %}How it works - LP Radar{% endblock %}
+{% block content %}
+<div class="stack stack-sections">
+
+<div class="stack stack-title">
+  <h1>How LP Radar works</h1>
+  <p class="lede">
+    LP Radar watches brand-new tokens and tells you, in one word, whether the early buying looks
+    safe or sketchy. It never trades, never holds your keys, and never guesses — every number on
+    this dashboard comes straight from Nansen's data.
+  </p>
+</div>
+
+<div class="panel stack">
+  <h2>The short version</h2>
+  <p>
+    When a token launches, its very first buyers say a lot about what's coming next. LP Radar
+    checks two things about them: first, do they look like <strong>one coordinated group</strong>
+    quietly controlling most of the supply (a "bundle") instead of real independent buyers?
+    Second, are Nansen's known good traders — <strong>Smart Money</strong> — buying in, or already
+    selling? Put those two signals together and every token gets a verdict:
+  </p>
+  <ul class="reason-list">
+    <li>{{ icon_check_circle("icon reason-icon") }}<span><strong>Green</strong> — looks clean: no coordinated bundle holding much supply, and Smart Money is in and holding.</span></li>
+    <li>{{ icon_eye("icon reason-icon") }}<span><strong>Watch</strong> — a mixed picture: not clearly bad, but not confidently clean either.</span></li>
+    <li>{{ icon_alert_triangle("icon reason-icon") }}<span><strong>Avoid</strong> — a real red flag: a large bundle, Smart Money net-selling, or a "smart" wallet that's actually inside the bundle.</span></li>
+  </ul>
+</div>
+
+<div class="stack stack-title">
+  <h2>From a new token to a verdict</h2>
+  <div class="funnel">
+    <div class="funnel-step panel">
+      <p class="funnel-step-number">1</p>
+      <p class="funnel-step-title">Discovery</p>
+      <p class="funnel-step-body">A token under 24h old reaches $1M+ market cap, or Nansen Smart Money is already trading it. Older or smaller tokens never enter the list.</p>
+    </div>
+    {{ icon_chevron_down("icon funnel-arrow") }}
+    <div class="funnel-step panel">
+      <p class="funnel-step-number">2</p>
+      <p class="funnel-step-title">Bundle check</p>
+      <p class="funnel-step-body">The earliest buyers are grouped if they share a funding wallet, bought in the same second, or bought suspiciously identical amounts. Their combined share of supply is measured.</p>
+    </div>
+    {{ icon_chevron_down("icon funnel-arrow") }}
+    <div class="funnel-step panel">
+      <p class="funnel-step-number">3</p>
+      <p class="funnel-step-title">Smart money check</p>
+      <p class="funnel-step-body">How many Nansen-labelled Smart Money wallets bought in, how much, and whether they're still holding or already selling.</p>
+    </div>
+    {{ icon_chevron_down("icon funnel-arrow") }}
+    <div class="funnel-step panel">
+      <p class="funnel-step-number">4</p>
+      <p class="funnel-step-title">Cross-check</p>
+      <p class="funnel-step-body">Is any "smart" wallet from step 3 also sitting inside the bundle from step 2? If so, that label is worth less than it looks.</p>
+    </div>
+    {{ icon_chevron_down("icon funnel-arrow") }}
+    <div class="funnel-step panel">
+      <p class="funnel-step-number">5</p>
+      <p class="funnel-step-title">Score</p>
+      <p class="funnel-step-body">Six weighted factors (Smart Money participation and holding, bundle size and status, volume/liquidity, holder growth) combine into one 0-100 score.</p>
+    </div>
+    {{ icon_chevron_down("icon funnel-arrow") }}
+    <div class="funnel-step panel">
+      <p class="funnel-step-number">6</p>
+      <p class="funnel-step-title">Verdict</p>
+      <p class="funnel-step-body">Green / Watch / Avoid from the score — except three automatic overrides ("vetoes") force Avoid regardless of score: a bundle over the size limit, Smart Money net-selling, or a failed cross-check.</p>
+    </div>
+  </div>
+</div>
+
+<div class="stack stack-title">
+  <h2>What each part of the dashboard shows</h2>
+
+  <div class="panel stack">
+    <h3>Token list</h3>
+    <dl class="explain-dl">
+      <div><dt>Verdict summary bar</dt><dd>How many currently-listed tokens are Green / Watch / Avoid. Click a segment to filter the table to it.</dd></div>
+      <div><dt>Bundle / Smart money / Score columns</dt><dd>Each shows the number plus a small bar so you can compare rows at a glance. The bar's colour follows the same severity as the verdict — it never carries information the number next to it doesn't.</dd></div>
+      <div><dt>Updated</dt><dd>How long ago this token was last re-checked. Turns amber if it's been more than 30 minutes, since a lot can change for a fresh token in that time.</dd></div>
+      <div><dt>What it doesn't show</dt><dd>Tokens older than 24 hours, unless you turn on "Include tokens over 24h" — this dashboard is specifically about the earliest window after launch.</dd></div>
+    </dl>
+  </div>
+
+  <div class="panel stack">
+    <h3>Token page: the supply ring</h3>
+    <dl class="explain-dl">
+      <div><dt>What it shows</dt><dd>Roughly who holds the supply right now: the bundle (if any), Smart Money's own holdings, and everyone else, as a percentage of total supply.</dd></div>
+      <div><dt>What it doesn't show</dt><dd>A breakdown of the bundle into its individual clusters (see the Bundle section below for that), or a separate "top holders" slice — Nansen's top-holders lookup isn't queried on every token to keep this free to run continuously, so that share is folded into "rest of supply" rather than guessed at.</dd></div>
+    </dl>
+  </div>
+
+  <div class="panel stack">
+    <h3>Token page: "Why this verdict" and "How the score is built"</h3>
+    <dl class="explain-dl">
+      <div><dt>Strengths / Risks</dt><dd>The specific, plain-English reasons behind the verdict, split into what's working in the token's favour and what isn't.</dd></div>
+      <div><dt>The stacked bar and component rows</dt><dd>Exactly how the 0-100 score adds up: each of the six factors, how many of its available points it earned, shown as its own segment and its own full-width meter.</dd></div>
+    </dl>
+  </div>
+
+  <div class="panel stack">
+    <h3>Token page: score history</h3>
+    <dl class="explain-dl">
+      <div><dt>What it shows</dt><dd>The score over time, with three shaded bands marking the Avoid / Watch / Green ranges, so you can see when (and how sharply) the verdict changed.</dd></div>
+      <div><dt>What it doesn't show</dt><dd>Anything before this dashboard first saw the token — there's no price history from before discovery.</dd></div>
+    </dl>
+  </div>
+
+  <div class="panel stack">
+    <h3>Token page: bundle</h3>
+    <dl class="explain-dl">
+      <div><dt>What it shows</dt><dd>The headline sentence gives the bundle's peak share of supply and its current share, so you can see if it's still holding, distributing, or has fully exited. Each cluster can be expanded to see its member wallets and why they were grouped together.</dd></div>
+    </dl>
+  </div>
+
+  <div class="panel stack">
+    <h3>Token page: smart money</h3>
+    <dl class="explain-dl">
+      <div><dt>Bought by tier</dt><dd>How much of the buying (in USD) came from each Smart Money tier. Click a slice, or the legend, to filter the wallet table to just that tier.</dd></div>
+      <div><dt>Buy vs sell per wallet</dt><dd>One bar per wallet: bought to the right, sold to the left, so a wallet that's flipped its position stands out immediately. Click a bar to open that wallet on its block explorer.</dd></div>
+      <div><dt>The wallet table</dt><dd>Each wallet's tier, total bought, total sold, and current balance (in tokens and USD) — a real balance, not just a "still holding: yes/no".</dd></div>
+    </dl>
+  </div>
+</div>
+
+<div class="stack stack-title">
+  <h2>Glossary</h2>
+  <div class="panel">
+    <dl class="explain-dl explain-glossary">
+      <div><dt>Smart Money / smart wallet</dt><dd>A wallet Nansen has identified as historically skilled — funds, or traders with a strong track record. It's a signal, not a guarantee: being "smart" means good at this before, not psychic.</dd></div>
+      <div><dt>Bundle</dt><dd>A group of early-buyer wallets that look coordinated rather than independent: they share a funding wallet, bought in the same second, or bought suspiciously identical amounts. A large bundle can dump on liquidity providers all at once.</dd></div>
+      <div><dt>Cluster</dt><dd>One specific group of wallets found by the bundle check. A token can have more than one cluster; the Bundle section lists each one.</dd></div>
+      <div><dt>Bundle status: holding / distributing / exited</dt><dd>Whether the bundle still has its original tokens (holding), is actively selling (distributing), or has fully sold out (exited).</dd></div>
+      <div><dt>Veto</dt><dd>An automatic Avoid that overrides the score entirely, because the risk is clear enough that no amount of other good signals should outweigh it.</dd></div>
+      <div><dt>Tier (Fund, Smart Trader, 30D/90D/180D Smart Trader)</dt><dd>Nansen's own labels for a wallet's trading track record and how recently it was earned.</dd></div>
+      <div><dt>Vol / Liq (volume / liquidity)</dt><dd>Trading volume divided by the size of the liquidity pool. A high number means a lot of trading relative to how deep the pool is — real interest, or a thin pool being pushed around; the score treats a healthy ratio as a positive, not a certainty.</dd></div>
+      <div><dt>Holders / h</dt><dd>How many new holders the token is gaining per hour — a fast-growing holder base is a mild positive signal.</dd></div>
+      <div><dt>Score components</dt><dd>The six weighted factors the 0-100 score is built from: Smart Money participation, Smart Money holding, low bundle supply, bundle status, volume/liquidity, and holder growth.</dd></div>
+    </dl>
+  </div>
+</div>
+
+</div>
+{% endblock %}

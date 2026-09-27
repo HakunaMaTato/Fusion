@@ -47,11 +47,15 @@ def test_screenshot(
     page.screenshot(path=SCREENSHOT_DIR / f"{page_name}-{viewport_name}.png", full_page=True)
 
 
-@pytest.mark.parametrize("page_name", ["list", "token", "status"])
+@pytest.mark.parametrize("page_name", ["list", "token", "status", "explain"])
 def test_no_serious_accessibility_violations(
     page: Page, live_server: str, green_token_path: str, page_name: str
 ) -> None:
-    url = {**pages(live_server, green_token_path), "status": f"{live_server}/status"}[page_name]
+    url = {
+        **pages(live_server, green_token_path),
+        "status": f"{live_server}/status",
+        "explain": f"{live_server}/explain",
+    }[page_name]
     page.goto(url)
     page.wait_for_load_state("networkidle")
 

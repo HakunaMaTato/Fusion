@@ -462,3 +462,26 @@ def status(
         context["health_class"] = "verdict-green"
         context["heartbeat_class"] = "watch" if now - beat > HEARTBEAT_WATCH_AGE else "ok"
     return render(request, "status.html", context)
+
+
+@router.get("/explain", response_class=HTMLResponse)
+def explain(
+    request: Request,
+    open_session: SessionFactory = Depends(get_session_factory),
+) -> HTMLResponse:
+    now = datetime.now(UTC)
+    header_status = HeaderStatus(heartbeat_class="avoid", last_scan=None)
+    try:
+        with open_session() as session:
+            header_status = _header_status(session, now)
+    except SQLAlchemyError:
+        logger.exception("dashboard could not read heartbeat status for the explain page")
+    return render(
+        request,
+        "explain.html",
+        {
+            "now": now,
+            "heartbeat_class": header_status.heartbeat_class,
+            "last_scan": header_status.last_scan,
+        },
+    )
