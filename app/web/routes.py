@@ -20,8 +20,8 @@ from app.pipeline.smart_money import SmartMoneyMetrics
 from app.storage import repo
 from app.storage.db import get_session_factory
 from app.storage.tables import ClusterRow, SnapshotRow, TokenRow
+from app.web import charts as chart_data
 from app.web import format as fmt
-from app.web.charts import ScorePoint, score_history_svg
 from app.web.links import NANSEN_APP_URL, token_explorer_url, wallet_explorer_url
 
 logger = logging.getLogger(__name__)
@@ -360,11 +360,6 @@ def token_page(
     if token is None or latest is None:
         return error_page(request, 404, "Token not found.")
 
-    chart = score_history_svg(
-        [ScorePoint(s.created_at, s.score, s.verdict) for s in history],
-        watch_min=scoring.watch_min,
-        green_min=scoring.green_min,
-    )
     age_hours = (now - token.deployed_at).total_seconds() / 3600 if token.deployed_at else None
     smart = SmartMoneyMetrics.model_validate(latest.smart_money)
     reasons = [Reason.model_validate(r) for r in latest.reasons]
@@ -377,6 +372,15 @@ def token_page(
         if smart.total_holders is not None and age_hours is not None
         else None
     )
+    bundle_wallet_count = sum(len(c.wallets) for c in clusters)
+    smart_money_tokens = sum(w.current_tokens for w in smart.wallets)
+    ring_slices, ring_notes = chart_data.ring_slices(
+        bundle_supply_pct=latest.bundle_supply_pct,
+        bundle_wallet_count=bundle_wallet_count,
+        smart_money_tokens=smart_money_tokens,
+        smart_money_wallet_count=len(smart.wallets),
+        circulating_supply=smart.circulating_supply,
+    )
     return render(
         request,
         "token.html",
@@ -386,7 +390,6 @@ def token_page(
             "age_hours": age_hours,
             "smart": smart,
             "clusters": clusters,
-            "chart": chart,
             "history_count": len(history),
             "explorer_url": token_explorer_url(chain, address),
             "nansen_url": NANSEN_APP_URL,
@@ -399,7 +402,15 @@ def token_page(
             "bundle_peak_supply_pct": bundle_peak_supply_pct,
             "holders_per_hour": holders_per_hour,
             "vol_liq_ratio": _vol_liq_ratio(latest.volume_usd, latest.liquidity_usd),
-            "bundle_wallet_count": sum(len(c.wallets) for c in clusters),
+            "bundle_wallet_count": bundle_wallet_count,
+            "ring_slices": ring_slices,
+            "ring_notes": ring_notes,
+            "ring_aria_label": chart_data.ring_aria_label(ring_slices),
+            "score_history_json": chart_data.score_history_data(
+                history, watch_min=scoring.watch_min, green_min=scoring.green_min
+            ),
+            "tier_donut_json": chart_data.tier_donut_data(smart.wallets),
+            "buy_sell_json": chart_data.buy_sell_data(smart.wallets),
         },
     )
 

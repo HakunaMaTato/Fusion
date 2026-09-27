@@ -7,7 +7,7 @@
 {% from "components/meter.html" import meter %}
 {% from "components/stat.html" import stat %}
 {% from "components/empty.html" import empty_value %}
-{% from "components/icons.html" import icon_check_circle, icon_alert_triangle %}
+{% from "components/icons.html" import icon_check_circle, icon_alert_triangle, icon_x %}
 {% set active = "tokens" %}
 {% block title %}{{ token.symbol }} on {{ token.chain }} - LP Radar{% endblock %}
 {% block content %}
@@ -30,9 +30,24 @@
 
 <div class="grid detail-hero">
   <div class="panel ring-panel">
-    <p class="ring-score">{{ "%.0f"|format(latest.score) }}</p>
-    <p class="ring-verdict ring-verdict-{{ latest.verdict|lower }}">{{ latest.verdict|capitalize }}</p>
-    <p class="muted ring-note">Supply ring arrives in UI-5.</p>
+    <div class="ring-wrap">
+      <div id="ring-chart" class="ring-chart" role="img" aria-label="{{ ring_aria_label }}"></div>
+      <script type="application/json" id="chart-ring">{{ ring_slices|tojson }}</script>
+      <div class="ring-center">
+        <p class="ring-score">{{ "%.0f"|format(latest.score) }}</p>
+        <p class="ring-verdict ring-verdict-{{ latest.verdict|lower }}">{{ latest.verdict|capitalize }}</p>
+      </div>
+    </div>
+    <ul class="ring-legend">
+      {% for s in ring_slices %}
+      <li><span class="ring-legend-dot ring-legend-dot-{{ s.kind }}"></span>{{ s.name }}: {{ "%.1f"|format(s.pct) }}%{% if s.wallets is not none %} ({{ s.wallets }} wallet{{ "s" if s.wallets != 1 }}){% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% if ring_notes %}
+    <ul class="ring-notes muted">
+      {% for note in ring_notes %}<li>{{ note }}</li>{% endfor %}
+    </ul>
+    {% endif %}
   </div>
   <div class="panel why-panel stack">
     <div>
@@ -77,17 +92,18 @@
   {{ stat("Updated", latest.created_at|ago(now)) }}
 </div>
 
-<section class="stack stack-title">
+<section class="stack stack-title" id="score-history-section">
   <h2>Score history</h2>
-  {% if chart %}
-  <div class="chart-box">{{ chart }}</div>
-  <p class="muted">{{ history_count }} snapshot{{ "s" if history_count != 1 }}.</p>
+  {% if history_count >= 2 %}
+  <div id="score-history-chart" class="chart-box chart-score-history" role="img" aria-label="Score history over {{ history_count }} snapshots, latest {{ "%.0f"|format(latest.score) }} ({{ latest.verdict|capitalize }})"></div>
+  <script type="application/json" id="chart-score-history">{{ score_history_json|tojson }}</script>
+  <p class="muted">{{ history_count }} snapshots.</p>
   {% else %}
   <p class="empty">Score history appears after the next re-check.</p>
   {% endif %}
 </section>
 
-<section class="stack stack-title">
+<section class="stack stack-title" id="bundle-section">
   <h2>Bundle</h2>
   {% if clusters %}
   <p>
@@ -125,7 +141,7 @@
   {% endif %}
 </section>
 
-<section class="stack stack-title">
+<section class="stack stack-title" id="smart-money-section">
   <h2>Smart money</h2>
   <div class="stat-row">
     {{ stat("Weighted score", "%.1f"|format(smart.weighted_score)) }}
@@ -135,13 +151,36 @@
     {{ stat("Market cap at entry", smart.market_cap_at_entry|money if smart.market_cap_at_entry is not none else empty_value("Not available from Nansen yet")) }}
   </div>
   {% if smart.wallets %}
+  {% set wallet_count = smart.wallets|length %}
+  {% set buysell_h = "chart-h-lg" if wallet_count > 15 else ("chart-h-md" if wallet_count > 5 else "chart-h-sm") %}
+  <div class="grid smart-money-charts">
+    <div class="panel tier-donut-panel">
+      <h3>Bought by tier</h3>
+      <div id="tier-donut-chart" class="chart-tier-donut" role="img" aria-label="USD bought by tier: {% for row in tier_donut_json %}{{ row.tier }} {{ row.usd|money }}{% if not loop.last %}, {% endif %}{% endfor %}"></div>
+      <script type="application/json" id="chart-tier-donut">{{ tier_donut_json|tojson }}</script>
+      <ul class="tier-legend">
+        {% for row in tier_donut_json %}
+        <li><button type="button" class="tier-legend-item" data-tier-legend="{{ row.tier }}">{{ tier_badge(row.tier) }} <span class="num">{{ row.usd|money }}</span></button></li>
+        {% endfor %}
+      </ul>
+      <p id="tier-filter-chip" class="chip-clear" hidden>
+        Filtered to <span id="tier-filter-label"></span>
+        <button type="button" id="tier-filter-clear" aria-label="Clear tier filter">{{ icon_x("icon") }}</button>
+      </p>
+    </div>
+    <div class="panel buysell-panel">
+      <h3>Buy vs sell per wallet</h3>
+      <div id="buysell-chart" class="{{ buysell_h }}" role="img" aria-label="Buy and sell amounts per smart money wallet; see the table below for exact figures."></div>
+      <script type="application/json" id="chart-buysell">{{ buy_sell_json|tojson }}</script>
+    </div>
+  </div>
   <table class="tokens wallets-table">
     <thead>
       <tr><th scope="col">Wallet</th><th scope="col">Tier</th><th scope="col" class="num">Bought</th><th scope="col" class="num">Sold</th><th scope="col">Balance</th></tr>
     </thead>
     <tbody>
       {% for w in smart.wallets %}
-      <tr>
+      <tr data-tier="{{ w.tier }}" data-wallet="{{ w.address }}">
         <td data-label="Wallet">{{ address_chip(token.chain, w.address) }}</td>
         <td data-label="Tier">{{ tier_badge(w.tier) }}</td>
         <td data-label="Bought" class="num">{{ w.bought_usd|money }}</td>

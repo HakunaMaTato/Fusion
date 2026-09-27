@@ -58,6 +58,9 @@ class SmartMoneyMetrics(BaseModel):
     smart_wallets: frozenset[str] = frozenset()
     total_holders: int | None = None
     wallets: list[SmartWalletSummary] = []
+    # UI_REDESIGN.md §7 item 3: lets the supply ring compute smart money's % of supply without a
+    # separate stored field or extra API call -- it's already fetched for market_cap_at_entry.
+    circulating_supply: float | None = None
 
 
 def match_label(label: str | None, cfg: SmartMoneyConfig) -> str | None:
@@ -183,6 +186,7 @@ def compute_smart_money_metrics(
         smart_wallets=frozenset(buyers),
         total_holders=total_holders,
         wallets=summaries[:MAX_WALLET_ROWS],
+        circulating_supply=circulating_supply,
     )
 
 

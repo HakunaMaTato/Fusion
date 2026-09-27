@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.demo import evm_address, solana_address
-from app.web.charts import ScorePoint, score_history_svg
 from app.web.format import (
     age,
     age_since,
@@ -65,56 +64,6 @@ def test_explorer_urls() -> None:
         f"https://robinhoodchain.blockscout.com/token/{evm}"
     )
     assert token_explorer_url("ethereum", evm) == f"https://etherscan.io/token/{evm}"
-
-
-# --- chart ---
-
-
-def point(minutes: int, score: float, verdict: str = "WATCH") -> ScorePoint:
-    return ScorePoint(NOW + timedelta(minutes=minutes), score, verdict)
-
-
-def test_an_empty_history_draws_nothing() -> None:
-    assert score_history_svg([], 40, 70) == ""
-
-
-def test_a_single_snapshot_is_one_point_without_a_line() -> None:
-    svg = str(score_history_svg([point(0, 55)], 40, 70))
-
-    assert svg.count("<circle") == 1
-    assert "<polyline" not in svg
-    assert 'role="img"' in svg and "latest 55" in svg
-
-
-def test_several_snapshots_are_joined_by_a_line_in_time_order() -> None:
-    svg = str(
-        score_history_svg([point(0, 40), point(10, 60, "WATCH"), point(30, 80, "GREEN")], 40, 70)
-    )
-
-    assert svg.count("<circle") == 3
-    assert svg.count("<polyline") == 1
-    assert "verdict-green" in svg and "verdict-watch" in svg
-    assert "GREEN" in svg and "WATCH" in svg  # threshold guide labels
-
-
-def test_scores_outside_the_axis_are_clamped() -> None:
-    svg = str(score_history_svg([point(0, -20), point(5, 250)], 40, 70))
-
-    assert 'cy="-' not in svg
-    assert svg.count("<circle") == 2
-
-
-def test_snapshots_at_the_same_moment_do_not_divide_by_zero() -> None:
-    svg = str(score_history_svg([point(0, 50), point(0, 60)], 40, 70))
-
-    assert svg.count("<circle") == 2
-
-
-def test_the_chart_escapes_text_and_uses_no_inline_style() -> None:
-    svg = str(score_history_svg([point(0, 50, '"><script>alert(1)</script>')], 40, 70))
-
-    assert "<script>" not in svg
-    assert " style=" not in svg
 
 
 # --- formatting ---

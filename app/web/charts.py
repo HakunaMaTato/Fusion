@@ -1,69 +1,112 @@
-from dataclasses import dataclass
-from datetime import datetime
-from html import escape
+"""Chart view models for the token detail page (UI_REDESIGN.md §6.2/6.5/6.7, §8).
 
-from markupsafe import Markup
+Each function returns a plain JSON-serialisable structure. The template embeds it as
+`<script type="application/json">` via Jinja's `tojson` filter, and `app/web/static/js/charts.js`
+reads it to build the actual ECharts option -- no chart-drawing logic lives in Python.
+"""
 
-WIDTH = 640
-HEIGHT = 180
-PAD_LEFT = 34
-PAD_RIGHT = 12
-PAD_TOP = 12
-PAD_BOTTOM = 22
+from app.pipeline.smart_money import SmartWalletSummary
+from app.storage.tables import SnapshotRow
+from app.web.format import short_address
 
-
-@dataclass(frozen=True)
-class ScorePoint:
-    at: datetime
-    score: float
-    verdict: str
+TOP_HOLDERS_UNAVAILABLE_NOTE = (
+    "Top holders aren't broken out separately (not queried, to save Nansen credits)."
+)
+SMART_MONEY_SHARE_UNAVAILABLE_NOTE = (
+    "Smart money's share of supply needs a token-information lookup this snapshot doesn't have."
+)
 
 
-def score_history_svg(points: list[ScorePoint], watch_min: float, green_min: float) -> Markup:
-    """Score over time as inline SVG (0-100 axis, verdict thresholds as guide lines).
+def ring_slices(
+    *,
+    bundle_supply_pct: float,
+    bundle_wallet_count: int,
+    smart_money_tokens: float,
+    smart_money_wallet_count: int,
+    circulating_supply: float | None,
+) -> tuple[list[dict[str, object]], list[str]]:
+    """The supply ring's slices, and any "not available" legend notes.
 
-    Colours come from CSS classes so a strict Content-Security-Policy can stay in place, and every
-    value placed in the markup is a number or an escaped string.
+    UI_REDESIGN.md §7 item 3 asks for a stored `supply_breakdown` with per-cluster slices and a
+    top-holders slice. This computes an equivalent view at render time from data already stored
+    instead, for two reasons: clusters have no stable identity across snapshots to break the
+    bundle into genuine per-cluster slices (so it's one combined "Bundle" slice here, matching how
+    the §6.6 headline already describes the bundle as a whole rather than per cluster), and the
+    top-holders endpoint was deliberately never queried (an earlier project decision, to save
+    credits), so that slice is never available and is folded into "Rest" rather than invented.
     """
-    if not points:
-        return Markup("")
-    plot_w = WIDTH - PAD_LEFT - PAD_RIGHT
-    plot_h = HEIGHT - PAD_TOP - PAD_BOTTOM
-    start, end = points[0].at, points[-1].at
-    span = (end - start).total_seconds()
+    notes: list[str] = []
+    slices: list[dict[str, object]] = []
+    bundle_pct = max(0.0, min(100.0, bundle_supply_pct))
+    if bundle_pct > 0:
+        slices.append(
+            {"name": "Bundle", "pct": bundle_pct, "kind": "bundle", "wallets": bundle_wallet_count}
+        )
 
-    def x(point: ScorePoint) -> float:
-        if len(points) == 1 or span <= 0:
-            return PAD_LEFT + plot_w / 2
-        return PAD_LEFT + plot_w * (point.at - start).total_seconds() / span
+    smart_pct = 0.0
+    if circulating_supply:
+        smart_pct = max(0.0, min(100.0, 100 * smart_money_tokens / circulating_supply))
+        if smart_pct > 0:
+            slices.append(
+                {
+                    "name": "Smart money",
+                    "pct": smart_pct,
+                    "kind": "smart",
+                    "wallets": smart_money_wallet_count,
+                }
+            )
+    elif smart_money_wallet_count:
+        notes.append(SMART_MONEY_SHARE_UNAVAILABLE_NOTE)
 
-    def y(score: float) -> float:
-        return PAD_TOP + plot_h * (1 - max(0.0, min(100.0, score)) / 100)
+    notes.append(TOP_HOLDERS_UNAVAILABLE_NOTE)
 
-    parts = [
-        f'<svg class="chart" viewBox="0 0 {WIDTH} {HEIGHT}" role="img" '
-        f'aria-label="Score history, {len(points)} snapshots, latest {points[-1].score:.0f}">'
+    rest_pct = max(0.0, 100.0 - bundle_pct - smart_pct)
+    if rest_pct > 0 or not slices:
+        slices.append({"name": "Rest of supply", "pct": rest_pct, "kind": "rest", "wallets": None})
+    return slices, notes
+
+
+def ring_aria_label(slices: list[dict[str, object]]) -> str:
+    parts = [f"{s['name']} {s['pct']:.1f}%" for s in slices]
+    return "Supply breakdown: " + ", ".join(parts)
+
+
+def score_history_data(
+    history: list[SnapshotRow], *, watch_min: float, green_min: float
+) -> dict[str, object]:
+    return {
+        "points": [
+            {
+                "t": int(s.created_at.timestamp() * 1000),
+                "score": s.score,
+                "verdict": s.verdict,
+            }
+            for s in history
+        ],
+        "watchMin": watch_min,
+        "greenMin": green_min,
+    }
+
+
+def tier_donut_data(wallets: list[SmartWalletSummary]) -> list[dict[str, object]]:
+    """USD bought per tier (§6.7), largest first."""
+    totals: dict[str, float] = {}
+    for wallet in wallets:
+        totals[wallet.tier] = totals.get(wallet.tier, 0.0) + wallet.bought_usd
+    return [
+        {"tier": tier, "usd": usd}
+        for tier, usd in sorted(totals.items(), key=lambda pair: pair[1], reverse=True)
     ]
-    for level, label in ((0, "0"), (watch_min, "WATCH"), (green_min, "GREEN"), (100, "100")):
-        parts.append(
-            f'<line class="chart-grid" x1="{PAD_LEFT}" x2="{WIDTH - PAD_RIGHT}" '
-            f'y1="{y(level):.1f}" y2="{y(level):.1f}"/>'
-            f'<text class="chart-label" x="{PAD_LEFT - 4}" y="{y(level) + 3:.1f}" '
-            f'text-anchor="end">{escape(label)}</text>'
-        )
-    if len(points) > 1:
-        line = " ".join(f"{x(p):.1f},{y(p.score):.1f}" for p in points)
-        parts.append(f'<polyline class="chart-line" points="{line}"/>')
-    for p in points:
-        css = f"chart-point verdict-{escape(p.verdict.lower())}"
-        title = f"{p.at:%Y-%m-%d %H:%M} UTC: {p.score:.0f} {p.verdict}"
-        parts.append(
-            f'<circle class="{css}" cx="{x(p):.1f}" cy="{y(p.score):.1f}" r="4">'
-            f"<title>{escape(title)}</title></circle>"
-        )
-    parts.append(
-        f'<text class="chart-label" x="{PAD_LEFT}" y="{HEIGHT - 6}">{start:%d %b %H:%M}</text>'
-        f'<text class="chart-label" x="{WIDTH - PAD_RIGHT}" y="{HEIGHT - 6}" text-anchor="end">'
-        f"{end:%d %b %H:%M}</text></svg>"
-    )
-    return Markup("".join(parts))
+
+
+def buy_sell_data(wallets: list[SmartWalletSummary]) -> list[dict[str, object]]:
+    """One diverging bar per wallet: bought right, sold left (§6.7). Same order as the table."""
+    return [
+        {
+            "address": wallet.address,
+            "label": short_address(wallet.address),
+            "bought": wallet.bought_usd,
+            "sold": wallet.sold_usd,
+        }
+        for wallet in wallets
+    ]
