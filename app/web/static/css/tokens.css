@@ -2,8 +2,9 @@
    reference to something defined here — never a raw hex colour or a raw px number. This is
    checked in CI (tests/unit/test_design_tokens.py greps for violations).
 
-   Dark is the only theme for now (§3.1: "Colour (dark theme, default)"). A `[data-theme="light"]`
-   variant is optional future work (phase UI-6); it is not implemented here. */
+   Dark is the only theme, decided (see docs/roadmap.md), not just deferred: §3.1 marked a
+   `[data-theme="light"]` variant optional for phase UI-6, and the decision was to skip it fully
+   rather than leave it half-planned. */
 
 :root {
   /* --- 3.1 Colour --- */

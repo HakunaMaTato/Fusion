@@ -264,8 +264,10 @@
         formatter: function (params) {
           var bought = params.filter(function (p) { return p.seriesName === "Bought"; })[0];
           var sold = params.filter(function (p) { return p.seriesName === "Sold"; })[0];
+          var row = bought ? data[bought.dataIndex] : null;
+          var hint = row && row.explorerUrl ? "<br/><em>Click to view on explorer</em>" : "";
           return (bought ? bought.name : "") + "<br/>Bought $" + Math.round(bought ? bought.value : 0).toLocaleString() +
-            "<br/>Sold $" + Math.round(sold ? Math.abs(sold.value) : 0).toLocaleString();
+            "<br/>Sold $" + Math.round(sold ? Math.abs(sold.value) : 0).toLocaleString() + hint;
         },
       },
       series: [
@@ -293,6 +295,17 @@
     });
     chart.on("mouseout", { componentType: "series" }, function () {
       highlightRow(null);
+    });
+    chart.on("click", { componentType: "series" }, function (params) {
+      var row = data[params.dataIndex];
+      if (row && row.explorerUrl) {
+        window.open(row.explorerUrl, "_blank", "noopener,noreferrer");
+      }
+    });
+    chart.getZr().on("mousemove", function (e) {
+      var pointInPixel = [e.offsetX, e.offsetY];
+      var overBar = chart.containPixel({ seriesIndex: [0, 1] }, pointInPixel);
+      chart.getZr().setCursorStyle(overBar ? "pointer" : "default");
     });
   }
 

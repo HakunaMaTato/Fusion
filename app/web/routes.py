@@ -410,7 +410,7 @@ def token_page(
                 history, watch_min=scoring.watch_min, green_min=scoring.green_min
             ),
             "tier_donut_json": chart_data.tier_donut_data(smart.wallets),
-            "buy_sell_json": chart_data.buy_sell_data(smart.wallets),
+            "buy_sell_json": chart_data.buy_sell_data(smart.wallets, chain),
         },
     )
 

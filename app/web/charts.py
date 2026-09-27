@@ -8,6 +8,7 @@ reads it to build the actual ECharts option -- no chart-drawing logic lives in P
 from app.pipeline.smart_money import SmartWalletSummary
 from app.storage.tables import SnapshotRow
 from app.web.format import pct, short_address
+from app.web.links import wallet_explorer_url
 
 TOP_HOLDERS_UNAVAILABLE_NOTE = (
     "Top holders aren't broken out separately (not queried, to save Nansen credits)."
@@ -34,6 +35,7 @@ def ring_slices(
     the §6.6 headline already describes the bundle as a whole rather than per cluster), and the
     top-holders endpoint was deliberately never queried (an earlier project decision, to save
     credits), so that slice is never available and is folded into "Rest" rather than invented.
+    See docs/roadmap.md for what real per-cluster tracking would take.
     """
     notes: list[str] = []
     slices: list[dict[str, object]] = []
@@ -99,14 +101,20 @@ def tier_donut_data(wallets: list[SmartWalletSummary]) -> list[dict[str, object]
     ]
 
 
-def buy_sell_data(wallets: list[SmartWalletSummary]) -> list[dict[str, object]]:
-    """One diverging bar per wallet: bought right, sold left (§6.7). Same order as the table."""
+def buy_sell_data(wallets: list[SmartWalletSummary], chain: str) -> list[dict[str, object]]:
+    """One diverging bar per wallet: bought right, sold left (§6.7). Same order as the table.
+
+    Each bar also carries the wallet's block-explorer URL, so clicking it opens the same page the
+    table row's own explorer-link icon does -- one more way to jump from "this wallet looks
+    interesting" to actually inspecting it on-chain, without a page reload.
+    """
     return [
         {
             "address": wallet.address,
             "label": short_address(wallet.address),
             "bought": wallet.bought_usd,
             "sold": wallet.sold_usd,
+            "explorerUrl": wallet_explorer_url(chain, wallet.address),
         }
         for wallet in wallets
     ]

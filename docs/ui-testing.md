@@ -36,7 +36,8 @@ manual "look at every screenshot yourself" step from earlier phases already did.
 capture (this harness) removes the toil of taking the screenshots by hand; automating the
 judgment call would need a baseline-update process (who approves a new baseline, where the old one
 goes, how a reviewer sees the diff in a PR) that doesn't exist yet. Worth building if the project
-keeps evolving the design after UI-6, but out of scope here.
+keeps evolving the design after UI-6, but out of scope here. Tracked as a future improvement in
+docs/roadmap.md.
 
 ## Found by this harness, fixed in UI-6
 

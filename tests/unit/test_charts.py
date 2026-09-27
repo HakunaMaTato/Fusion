@@ -161,22 +161,32 @@ def test_tier_donut_data_is_empty_without_wallets() -> None:
 # --- buy_sell_data ---
 
 
-def test_buy_sell_data_carries_a_short_label_and_both_sides() -> None:
-    wallets = [wallet("0x" + "ab" * 20, "Fund", 4200.0, 5200.0)]
+def test_buy_sell_data_carries_a_short_label_both_sides_and_an_explorer_link() -> None:
+    address = "0x" + "ab" * 20
+    wallets = [wallet(address, "Fund", 4200.0, 5200.0)]
 
-    data = buy_sell_data(wallets)
+    data = buy_sell_data(wallets, "base")
 
     assert data == [
         {
-            "address": "0x" + "ab" * 20,
+            "address": address,
             "label": "0xabab…abab",
             "bought": 4200.0,
             "sold": 5200.0,
+            "explorerUrl": f"https://basescan.org/address/{address}",
         }
     ]
+
+
+def test_buy_sell_data_explorer_link_is_none_for_an_unknown_chain_or_address() -> None:
+    wallets = [wallet("not-a-real-address", "Fund", 100.0)]
+
+    data = buy_sell_data(wallets, "solana")
+
+    assert data[0]["explorerUrl"] is None
 
 
 def test_buy_sell_data_preserves_input_order() -> None:
     wallets = [wallet("b", "Fund", 100.0), wallet("a", "Fund", 900.0)]
 
-    assert [row["address"] for row in buy_sell_data(wallets)] == ["b", "a"]
+    assert [row["address"] for row in buy_sell_data(wallets, "solana")] == ["b", "a"]
