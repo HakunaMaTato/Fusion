@@ -418,3 +418,62 @@ async def test_token_rows_carry_the_discovery_metadata(tmp_path: Path) -> None:
     assert token.symbol == "ABC"
     assert token.deployed_at == START - timedelta(minutes=30)
     assert set(token.feeds) == {"screener", "smart_money"}
+
+
+# --- fairness between new discoveries and watchlist re-evaluation (issue 15) ---
+
+
+@pytest.mark.asyncio
+async def test_watchlist_reevaluation_is_not_starved_by_new_candidates(tmp_path: Path) -> None:
+    """A steady stream of new candidates must not block re-evaluating the existing watchlist.
+
+    Regression test for a real bug found while investigating the UI redesign's issue 15 (rows
+    stuck at "Updated 7-16h ago"): the old code processed brand-new candidates first, and if the
+    very first one was unaffordable it `return`ed immediately, skipping the re-evaluation pass
+    below entirely for that tick, however much budget was actually left or how overdue the
+    watchlist was.
+    """
+    from app.demo import _analysis, _candidate
+
+    tiny = REAL_CFG.model_copy(
+        update={
+            "monitor": MonitorConfig(reeval_seconds=1),
+            "budget": REAL_CFG.budget.model_copy(
+                update={"estimated_analysis_credits": 1000.0, "estimated_reeval_credits": 1.0}
+            ),
+        }
+    )
+    env = make_env(tmp_path, [], daily_budget=24, cfg=tiny)  # hourly allowance: 1 credit
+
+    watched = _candidate("solana", GOOD, "GOOD", START - timedelta(hours=2), 2_000_000.0)
+    with env.factory() as session:
+        token = repo.upsert_token(session, watched, START - timedelta(hours=2))
+        repo.save_snapshot(
+            session,
+            token,
+            _analysis(
+                watched, START - timedelta(hours=1), score=80, verdict="GREEN", reasons=["r"]
+            ),
+        )
+
+    new_candidate = Candidate(
+        chain="solana",
+        token_address=BAD,
+        token_symbol="NEW",
+        token_age_hours=0.1,
+        market_cap_usd=9_000_000.0,  # would sort first if pending were tried by market cap
+        token_deployment_date=START,
+    )
+    env.worker._pending[("solana", BAD)] = new_candidate
+
+    calls: list[str] = []
+
+    async def record(candidate: Candidate, now: Any) -> None:
+        calls.append(candidate.token_address)
+
+    env.worker._analyze_one = record  # type: ignore[method-assign]
+
+    await env.worker._analyze(START)
+
+    assert calls == [GOOD]  # the overdue watchlisted token was re-evaluated
+    assert env.worker._pending == {("solana", BAD): new_candidate}  # left pending, not lost
