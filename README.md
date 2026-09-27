@@ -11,8 +11,7 @@ the specific reasons behind the verdict.
 It is read-only: it never holds keys, signs transactions, or trades. It's a research instrument
 for someone deciding where to park liquidity, not a bot that acts on their behalf.
 
-**Live dashboard:** https://34-154-8-205.sslip.io (behind a login — Nansen's data isn't shown
-publicly; ask for credentials). **Repo:** this one. **License:** MIT (see `LICENSE`).
+**Live dashboard:** https://34-154-8-205.sslip.io **Repo:** this one. **License:** MIT (see `LICENSE`).
 
 ## The problem
 
