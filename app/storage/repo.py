@@ -69,7 +69,7 @@ def save_snapshot(session: Session, token: TokenRow, analysis: TokenAnalysis) ->
         score=analysis.score.score,
         verdict=analysis.score.verdict,
         vetoes=analysis.score.vetoes,
-        reasons=analysis.score.reasons,
+        reasons=[r.model_dump(mode="json") for r in analysis.score.reasons],
         components=analysis.score.components,
         smart_money=analysis.smart_money.model_dump(mode="json"),
         bundle_status=analysis.bundle.status,

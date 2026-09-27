@@ -193,6 +193,92 @@ def test_token_page_shows_the_smart_money_wallets(client: TestClient) -> None:
     assert 'href="https://solscan.io/account/' in body
 
 
+# --- UI-4: §6.3 reason polarity, §6.6 bundle peak, §6.7 balances, issue 12/18 ---
+
+
+def test_reasons_are_split_into_strengths_and_risks(client: TestClient) -> None:
+    green = client.get(GREEN).text
+    avoid = client.get(AVOID).text
+
+    assert "Strengths" in green and "4 smart wallets (weighted 4.8)" in green
+    assert "Risks" not in green  # the demo GREEN token has no risk reasons at all
+
+    assert "Risks" in avoid and "Strengths" not in avoid  # the vetoed stage has no strengths
+    assert "bundle of 14 wallets holds 38% of supply (veto above 30%)" in avoid
+
+
+def test_bundle_headline_reports_wallet_count_and_the_peak_across_snapshots(
+    engine: Engine,
+) -> None:
+    from app.demo import _analysis, _candidate
+
+    cand = _candidate("solana", "peaktest", "PEAK", datetime.now(UTC) - timedelta(hours=1), 1e6)
+    wallets = [solana_address(f"peak-{i}") for i in range(5)]
+    with make_session_factory(engine)() as session:
+        token = repo.upsert_token(session, cand, datetime.now(UTC))
+        repo.save_snapshot(
+            session,
+            token,
+            _analysis(
+                cand,
+                datetime.now(UTC) - timedelta(minutes=10),
+                score=50,
+                verdict="WATCH",
+                reasons=["r"],
+                bundle_wallets=wallets,
+                bundle_supply=41.0,
+                bundle_status="holding",
+            ),
+        )
+        repo.save_snapshot(
+            session,
+            token,
+            _analysis(
+                cand,
+                datetime.now(UTC),
+                score=60,
+                verdict="WATCH",
+                reasons=["r"],
+                bundle_wallets=wallets,
+                bundle_supply=0.4,
+                bundle_status="exited",
+            ),
+        )
+    use(make_session_factory(engine))
+    try:
+        body = TestClient(app).get("/token/solana/peaktest").text
+    finally:
+        app.dependency_overrides.clear()
+
+    assert "5 wallets in 1 cluster" in body
+    assert "held 41.0% of supply at peak and hold 0.4% now" in body
+    assert "Status: exited." in body
+
+
+def test_smart_money_table_shows_a_balance_not_a_yes_no(client: TestClient) -> None:
+    body = client.get(GREEN).text
+
+    assert "Balance" in body and "Holding" not in body  # issue 14: column renamed
+    assert "tok (" in body  # a token quantity + its USD value, not "yes"/"no"
+    assert ">yes<" not in body and ">no<" not in body
+
+
+def test_market_cap_at_entry_is_an_em_dash_when_missing_not_a_dollar_zero(
+    client: TestClient,
+) -> None:
+    body = client.get(HOSTILE).text  # the hostile-named token has no smart wallets at all
+
+    assert "Market cap at entry" in body
+    assert 'class="value-empty"' in body
+
+
+def test_bundle_status_component_is_relabelled_with_a_tooltip(client: TestClient) -> None:
+    body = client.get(AVOID).text
+
+    assert "Bundle has exited" in body  # issue 18: not the raw "Bundle status"
+    assert "Scored from bundle status" in body
+
+
 def test_token_page_links_to_the_explorer_and_nansen(client: TestClient) -> None:
     solana = client.get(GREEN).text
     base = client.get(WATCH).text

@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings, load_scoring_config
+from app.pipeline.scoring import Reason
 from app.pipeline.smart_money import SmartMoneyMetrics
 from app.storage import repo
 from app.storage.db import get_session_factory
@@ -40,12 +41,14 @@ templates.env.filters.update(
     percent=fmt.percent,
     usd=fmt.usd,
     pct=fmt.pct,
+    qty=fmt.qty,
     ratio=fmt.ratio,
     age=fmt.age,
     ago=fmt.age_since,
     short=fmt.short_address,
     cluster_reason=fmt.cluster_reason,
     component=fmt.component_label,
+    component_tooltip=fmt.component_tooltip,
     chain_class=fmt.chain_class,
     chain_label=fmt.chain_label,
     avatar_hue=fmt.avatar_hue,
@@ -302,6 +305,36 @@ def _cluster_view(cluster: ClusterRow) -> ClusterView:
     )
 
 
+@dataclass
+class ComponentView:
+    """One row of §6.4 "How the score is built": points earned out of the points available."""
+
+    name: str
+    label: str
+    tooltip: str | None
+    value: float  # 0..1, the raw component score
+    weight: float  # points available (weights sum to 100)
+    points: float  # value * weight, what this component actually contributed
+    width_class: str  # points as a share of the 0-100 score bar (fmt.width_class)
+
+
+def _component_views(
+    components: dict[str, float], weights: dict[str, float]
+) -> list[ComponentView]:
+    return [
+        ComponentView(
+            name=name,
+            label=fmt.component_label(name),
+            tooltip=fmt.component_tooltip(name),
+            value=value,
+            weight=weights.get(name, 0.0),
+            points=value * weights.get(name, 0.0),
+            width_class=fmt.width_class(value * weights.get(name, 0.0)),
+        )
+        for name, value in components.items()
+    ]
+
+
 @router.get("/token/{chain}/{address}", response_class=HTMLResponse)
 def token_page(
     request: Request,
@@ -332,16 +365,26 @@ def token_page(
         watch_min=scoring.watch_min,
         green_min=scoring.green_min,
     )
+    age_hours = (now - token.deployed_at).total_seconds() / 3600 if token.deployed_at else None
+    smart = SmartMoneyMetrics.model_validate(latest.smart_money)
+    reasons = [Reason.model_validate(r) for r in latest.reasons]
+    # §6.6: the headline sentence's "peak" is the bundle as a whole (all clusters combined), not
+    # any one cluster, so the max of the already-stored per-snapshot aggregate is enough — no
+    # per-cluster history is needed (clusters aren't given a stable identity across snapshots).
+    bundle_peak_supply_pct = max(s.bundle_supply_pct for s in history)
+    holders_per_hour = (
+        smart.total_holders / max(age_hours, 1.0)
+        if smart.total_holders is not None and age_hours is not None
+        else None
+    )
     return render(
         request,
         "token.html",
         {
             "token": token,
             "latest": latest,
-            "age_hours": (now - token.deployed_at).total_seconds() / 3600
-            if token.deployed_at
-            else None,
-            "smart": SmartMoneyMetrics.model_validate(latest.smart_money),
+            "age_hours": age_hours,
+            "smart": smart,
             "clusters": clusters,
             "chart": chart,
             "history_count": len(history),
@@ -350,6 +393,13 @@ def token_page(
             "now": now,
             "heartbeat_class": header_status.heartbeat_class,
             "last_scan": header_status.last_scan,
+            "strengths": [r for r in reasons if r.polarity == "positive"],
+            "risks": [r for r in reasons if r.polarity == "risk"],
+            "components": _component_views(latest.components, scoring.weights.model_dump()),
+            "bundle_peak_supply_pct": bundle_peak_supply_pct,
+            "holders_per_hour": holders_per_hour,
+            "vol_liq_ratio": _vol_liq_ratio(latest.volume_usd, latest.liquidity_usd),
+            "bundle_wallet_count": sum(len(c.wallets) for c in clusters),
         },
     )
 

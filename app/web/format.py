@@ -1,6 +1,21 @@
 from datetime import UTC, datetime
 
 
+def qty(value: float | None) -> str:
+    """A plain token quantity, no currency symbol (issue 14's balance column): "3.1K", "91"."""
+    if value is None:
+        return "n/a"
+    sign = "-" if value < 0 else ""
+    magnitude = abs(value)
+    if magnitude >= 1e9:
+        return f"{sign}{magnitude / 1e9:.2f}B"
+    if magnitude >= 1e6:
+        return f"{sign}{magnitude / 1e6:.2f}M"
+    if magnitude >= 1e3:
+        return f"{sign}{magnitude / 1e3:.1f}K"
+    return f"{sign}{magnitude:,.0f}"
+
+
 def money(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -151,7 +166,7 @@ COMPONENT_LABELS = {
     "sm_participation": "Smart money participation",
     "sm_holding": "Smart money holding",
     "bundle_supply": "Low bundle supply",
-    "bundle_status": "Bundle status",
+    "bundle_status": "Bundle has exited",  # issue 18: "status" alone read as raw, not a score
     "volume_liquidity": "Volume / liquidity",
     "holder_growth": "Holder growth",
 }
@@ -159,3 +174,17 @@ COMPONENT_LABELS = {
 
 def component_label(name: str) -> str:
     return COMPONENT_LABELS.get(name, name.replace("_", " ").capitalize())
+
+
+# issue 18: the "Bundle has exited" row's score isn't self-explanatory, so it carries a tooltip
+# spelling out the status mapping it's built from (config/scoring.yaml's `status_scores`).
+COMPONENT_TOOLTIPS = {
+    "bundle_status": (
+        "Scored from bundle status: exited or none scores highest, holding and "
+        "distributing score lower."
+    ),
+}
+
+
+def component_tooltip(name: str) -> str | None:
+    return COMPONENT_TOOLTIPS.get(name)

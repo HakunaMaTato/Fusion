@@ -121,8 +121,8 @@ def test_unavailable_components_are_rescaled_not_scored_as_zero() -> None:
     assert full.score == pytest.approx(70.0)  # 30 of 100 weight is missing
     assert reduced.score == pytest.approx(100.0)
     assert reduced.verdict == "GREEN" and full.verdict == "GREEN"
-    assert not any("unavailable" in reason for reason in reduced.reasons)
-    assert any("unavailable" in reason for reason in full.reasons)
+    assert not any("unavailable" in reason.text for reason in reduced.reasons)
+    assert any("unavailable" in reason.text for reason in full.reasons)
 
 
 def test_rescaling_does_not_change_a_vetoed_verdict() -> None:

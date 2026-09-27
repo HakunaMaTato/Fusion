@@ -52,7 +52,9 @@ class SnapshotRow(Base):
     score: Mapped[float] = mapped_column(Float)
     verdict: Mapped[str] = mapped_column(String(8))
     vetoes: Mapped[list[str]] = mapped_column(JSON)
-    reasons: Mapped[list[str]] = mapped_column(JSON)
+    # Each item is a UI_REDESIGN.md §7 Reason dump: {"text": str, "polarity": "positive"|"risk",
+    # "component": str | None}.
+    reasons: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
     components: Mapped[dict[str, float]] = mapped_column(JSON)
     smart_money: Mapped[dict[str, Any]] = mapped_column(JSON)
     bundle_status: Mapped[str] = mapped_column(String(16))

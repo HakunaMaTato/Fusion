@@ -1,0 +1,190 @@
+/* Token detail page (UI_REDESIGN.md §6). Tokens-only, like every other stylesheet
+   (tests/unit/test_design_tokens.py). */
+
+/* --- 6.1 Layout --- */
+
+.veto-banner {
+  background: var(--avoid-tint);
+  color: var(--avoid);
+  font-weight: var(--weight-medium);
+  border-radius: var(--radius-control);
+  padding: var(--s-3) var(--s-4);
+}
+
+.detail-hero { align-items: stretch; }
+
+.ring-panel {
+  grid-column: span 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--s-1);
+}
+
+.why-panel { grid-column: span 7; }
+
+@media (max-width: 1199px) {
+  .ring-panel,
+  .why-panel {
+    grid-column: span 12;
+  }
+}
+
+.ring-score {
+  font-size: var(--text-hero-size);
+  line-height: var(--text-hero-line);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.ring-verdict {
+  font-size: var(--text-subsection-size);
+  font-weight: var(--weight-semibold);
+  margin: 0;
+}
+
+.ring-verdict-green { color: var(--green); }
+.ring-verdict-watch { color: var(--watch); }
+.ring-verdict-avoid { color: var(--avoid); }
+
+.ring-note {
+  font-size: var(--text-label-size);
+  margin: 0;
+}
+
+/* --- 6.3 Why this verdict --- */
+
+.reason-heading {
+  color: var(--text-muted);
+  font-size: var(--text-label-size);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.reason-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.reason-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.reason-list-positive .reason-icon { color: var(--green); }
+.reason-list-risk .reason-icon { color: var(--avoid); }
+
+/* --- 6.4 How the score is built --- */
+
+.score-buildup {
+  display: flex;
+  height: 12px;
+  border-radius: var(--radius-chip);
+  overflow: hidden;
+  background: var(--line);
+}
+
+.score-buildup-segment {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-right: 1px solid var(--ink);
+}
+
+.score-buildup-segment:last-child { border-right: 0; }
+
+.component-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.component-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr 6rem;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+/* The fixed 12rem/6rem side columns don't leave room for the meter on a phone-width panel
+   (they alone exceed 375px), so the row wraps to two lines there instead of collapsing it. */
+@media (max-width: 767px) {
+  .component-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "label points" "meter meter";
+    row-gap: var(--s-1);
+  }
+
+  .component-label { grid-area: label; }
+  .component-points { grid-area: points; }
+  .component-row .meter { grid-area: meter; }
+}
+
+.component-label {
+  color: var(--text-muted);
+  font-size: var(--text-label-size);
+}
+
+.component-points {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: var(--text-label-size);
+}
+
+/* --- 6.6 Bundle: collapsible cluster panels --- */
+
+.cluster-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cluster-summary::-webkit-details-marker { display: none; }
+
+.cluster-summary-title {
+  font-weight: var(--weight-semibold);
+}
+
+.cluster-tags { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+
+.cluster-body { margin-top: var(--s-4); }
+
+.cluster-more summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--text-label-size);
+  margin-top: var(--s-3);
+}
+
+.cluster-more .wallets { margin-top: var(--s-3); }
+
+/* --- 6.7 Smart money wallet table on mobile ---
+   table.tokens's own mobile rules (list.css) only give a full-width row to the list page's own
+   column names; this table's columns (Bought/Sold/Balance) would otherwise default to shrink-to-
+   fit flex items that pack onto the same line and collide. The extra class beats that generic
+   rule on specificity regardless of source order (the same lesson as list.css's own row-height
+   override). */
+@media (max-width: 767px) {
+  .wallets-table td[data-label="Wallet"],
+  .wallets-table td[data-label="Tier"],
+  .wallets-table td[data-label="Bought"],
+  .wallets-table td[data-label="Sold"],
+  .wallets-table td[data-label="Balance"] {
+    flex: 1 1 100%;
+    margin-bottom: var(--s-3);
+  }
+
+  .wallets-table tr td[data-label="Balance"]:last-child { margin-bottom: 0; }
+}

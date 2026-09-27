@@ -9,7 +9,7 @@ from app.nansen.client import NansenClient
 from app.pipeline.analyze import MissingDeploymentDate, TokenAnalysis, analyze_token
 from app.pipeline.bundle import BundleAnalysis, Cluster
 from app.pipeline.discovery import Candidate
-from app.pipeline.scoring import ScoreResult
+from app.pipeline.scoring import Reason, ScoreResult
 from app.pipeline.smart_money import SmartMoneyMetrics
 from app.storage import repo
 from app.storage.db import init_db, make_engine, make_session_factory
@@ -93,7 +93,7 @@ def analysis(
             score=80.0,
             verdict=verdict,
             vetoes=[],
-            reasons=["r1"],
+            reasons=[Reason(text="r1", polarity="positive")],
             components={"a": 1.0},  # type: ignore[arg-type]
         ),
         token_age_hours=1.0,
