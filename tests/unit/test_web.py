@@ -534,6 +534,17 @@ def test_the_stylesheet_has_a_phone_breakpoint(client: TestClient) -> None:
     assert "overflow-x" not in css or "hidden" not in css.split("overflow-x")[1][:12]
 
 
+def test_list_table_headers_override_the_legacy_all_caps_rule(client: TestClient) -> None:
+    """issue 7: app.css's pre-redesign `thead th` still forces ALL CAPS (it also has to keep
+    styling plain, non-.tokens tables like the token page's `.plain` component table), so
+    list.css's `table.tokens thead th` must keep overriding it back to sentence case."""
+    css = client.get("/static/css/list.css").text
+
+    assert "table.tokens thead th" in css
+    rule = css.split("table.tokens thead th")[1].split("}")[0]
+    assert "text-transform: none" in rule
+
+
 def test_dark_is_the_only_theme_for_now(client: TestClient) -> None:
     """UI_REDESIGN.md §3.1: dark is the default (and, until UI-6, only) theme, not conditional on
     the visitor's OS preference."""

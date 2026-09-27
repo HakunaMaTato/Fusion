@@ -7,7 +7,7 @@ reads it to build the actual ECharts option -- no chart-drawing logic lives in P
 
 from app.pipeline.smart_money import SmartWalletSummary
 from app.storage.tables import SnapshotRow
-from app.web.format import short_address
+from app.web.format import pct, short_address
 
 TOP_HOLDERS_UNAVAILABLE_NOTE = (
     "Top holders aren't broken out separately (not queried, to save Nansen credits)."
@@ -67,7 +67,7 @@ def ring_slices(
 
 
 def ring_aria_label(slices: list[dict[str, object]]) -> str:
-    parts = [f"{s['name']} {s['pct']:.1f}%" for s in slices]
+    parts = [f"{s['name']} {pct(float(s['pct']))}" for s in slices]  # type: ignore[arg-type]
     return "Supply breakdown: " + ", ".join(parts)
 
 

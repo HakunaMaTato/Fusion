@@ -1,21 +1,43 @@
 {% extends "base.html" %}
+{% from "components/meter.html" import meter %}
+{% from "components/stat.html" import stat %}
+{% from "components/icons.html" import icon_check_circle, icon_alert_triangle, icon_eye %}
 {% set active = "status" %}
 {% block title %}Status - LP Radar{% endblock %}
 {% block content %}
-<h1>Status</h1>
-<p><span class="badge badge-lg {{ health_class }}">{{ health }}</span></p>
-{% if not db_ok %}
-<p class="veto">The data store is temporarily unavailable.</p>
-{% endif %}
-<dl class="facts">
-  <div><dt>Credits used today (UTC)</dt><dd>{{ credits_used }} / {{ budget }}</dd></div>
-  <div><dt>Hourly credit share</dt><dd>{{ "%.0f"|format(hourly_share) }}</dd></div>
-  <div><dt>Data mode</dt><dd>{{ mode }}</dd></div>
-  <div><dt>Worker heartbeat</dt><dd>{{ beat|ago(now) }}</dd></div>
-  <div><dt>Last discovery poll</dt><dd>{{ last_discovery|ago(now) }}</dd></div>
-  <div><dt>Last analysis</dt><dd>{{ last_analysis|ago(now) }}</dd></div>
-</dl>
-<p>
-  <progress max="{{ budget if budget > 0 else 1 }}" value="{{ credits_used }}">{{ credits_used }} of {{ budget }} credits</progress>
-</p>
+<div class="stack stack-sections">
+
+<div class="stack">
+  <h1>Status</h1>
+  <p class="pill pill-lg {{ "pill-green" if health_class == "verdict-green" else ("pill-avoid" if health_class == "verdict-avoid" else "pill-unknown") }}">
+    {%- if health_class == "verdict-green" -%}
+    {{ icon_check_circle("pill-icon") }}
+    {%- elif health_class == "verdict-avoid" -%}
+    {{ icon_alert_triangle("pill-icon") }}
+    {%- else -%}
+    {{ icon_eye("pill-icon") }}
+    {%- endif -%}
+    {{ health }}
+  </p>
+  {% if not db_ok %}
+  <p class="veto-banner">The data store is temporarily unavailable.</p>
+  {% endif %}
+</div>
+
+<div class="panel stack">
+  <div class="stat-row">
+    {{ stat("Credits used today (UTC)", (credits_used|string) ~ " / " ~ (budget|string)) }}
+    {{ stat("Hourly credit share", "%.0f"|format(hourly_share)) }}
+    {{ stat("Data mode", mode) }}
+    {{ stat("Worker heartbeat", beat|ago(now)) }}
+    {{ stat("Last discovery poll", last_discovery|ago(now)) }}
+    {{ stat("Last analysis", last_analysis|ago(now)) }}
+  </div>
+  <div class="status-credit-meter">
+    <p class="status-credit-meter-label">Credits used today</p>
+    {{ meter(credits_used, budget if budget > 0 else 1) }}
+  </div>
+</div>
+
+</div>
 {% endblock %}

@@ -1,0 +1,14 @@
+/* Status page (UI_REDESIGN.md §9 "UI-6 Polish": status page restyle). Tokens-only, like every
+   other stylesheet (tests/unit/test_design_tokens.py). */
+
+.status-credit-meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.status-credit-meter-label {
+  font-size: var(--text-label-size);
+  color: var(--text-muted);
+  margin: 0;
+}

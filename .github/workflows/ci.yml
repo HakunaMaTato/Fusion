@@ -34,6 +34,35 @@ jobs:
           NANSEN_MODE: replay
         run: pytest
 
+  ui-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ui.lock
+          pip install --no-deps -e .
+          playwright install --with-deps chromium
+
+      - name: UI tests (screenshots, axe-core, keyboard nav)
+        env:
+          NANSEN_MODE: replay
+        run: pytest tests/ui
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: tests/ui/screenshots/
+          retention-days: 14
+
   docker-build:
     runs-on: ubuntu-latest
     steps:

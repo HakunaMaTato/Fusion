@@ -25,3 +25,4 @@ htmlcov/
 .demo/
 backtest/cache/
 .ui-preview/
+tests/ui/screenshots/

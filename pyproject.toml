@@ -25,6 +25,14 @@ dev = [
     "respx>=0.21",
     "types-PyYAML>=6.0",
 ]
+# UI_REDESIGN.md §10: screenshots at three breakpoints and an axe-core accessibility pass. Kept
+# out of `dev` so the fast unit-test job's install step doesn't grow a browser-automation stack;
+# only the dedicated ui-tests CI job (and anyone running `pytest tests/ui` locally) needs this.
+ui = [
+    "playwright>=1.63",
+    "pytest-playwright>=0.9",
+    "axe-core-python>=0.1",
+]
 
 [build-system]
 requires = ["setuptools>=68"]
