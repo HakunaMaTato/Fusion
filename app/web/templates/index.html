@@ -5,7 +5,7 @@
 {% block title %}Fresh tokens - LP Radar{% endblock %}
 {% block content %}
 <div class="stack">
-  <div>
+  <div class="stack stack-title">
     <h1>Fresh tokens</h1>
     <p class="lede">Tokens under 24 hours old that reached $1M, rated for liquidity provision.</p>
   </div>
@@ -54,7 +54,7 @@
     </div>
     {% endif %}
     <div class="filter-row">
-      <a class="chip" href="/{{ list_url(aged='1' if not aged else none) }}" aria-pressed="{{ 'true' if aged else 'false' }}">
+      <a class="chip" href="/{{ list_url(aged='1' if not aged else none) }}" role="button" aria-pressed="{{ 'true' if aged else 'false' }}">
         {% if aged %}{{ icon_x("icon") }}{% endif %}Include tokens over 24h
       </a>
       {% if verdict or chain or search or aged %}

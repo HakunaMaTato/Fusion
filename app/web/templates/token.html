@@ -40,7 +40,7 @@
     </div>
     <ul class="ring-legend">
       {% for s in ring_slices %}
-      <li><span class="ring-legend-dot ring-legend-dot-{{ s.kind }}"></span>{{ s.name }}: {{ "%.1f"|format(s.pct) }}%{% if s.wallets is not none %} ({{ s.wallets }} wallet{{ "s" if s.wallets != 1 }}){% endif %}</li>
+      <li><span class="ring-legend-dot ring-legend-dot-{{ s.kind }}"></span>{{ s.name }}: {{ s.pct|pct }}{% if s.wallets is not none %} ({{ s.wallets }} wallet{{ "s" if s.wallets != 1 }}){% endif %}</li>
       {% endfor %}
     </ul>
     {% if ring_notes %}
@@ -50,22 +50,26 @@
     {% endif %}
   </div>
   <div class="panel why-panel stack">
-    <div>
+    <div class="stack">
       <h2>Why this verdict</h2>
       {% if strengths %}
-      <h3 class="reason-heading">Strengths</h3>
-      <ul class="reason-list reason-list-positive">
-        {% for r in strengths %}<li>{{ icon_check_circle("icon reason-icon") }}<span>{{ r.text }}</span></li>{% endfor %}
-      </ul>
+      <div class="stack stack-title">
+        <h3 class="reason-heading">Strengths</h3>
+        <ul class="reason-list reason-list-positive">
+          {% for r in strengths %}<li>{{ icon_check_circle("icon reason-icon") }}<span>{{ r.text }}</span></li>{% endfor %}
+        </ul>
+      </div>
       {% endif %}
       {% if risks %}
-      <h3 class="reason-heading">Risks</h3>
-      <ul class="reason-list reason-list-risk">
-        {% for r in risks %}<li>{{ icon_alert_triangle("icon reason-icon") }}<span>{{ r.text }}</span></li>{% endfor %}
-      </ul>
+      <div class="stack stack-title">
+        <h3 class="reason-heading">Risks</h3>
+        <ul class="reason-list reason-list-risk">
+          {% for r in risks %}<li>{{ icon_alert_triangle("icon reason-icon") }}<span>{{ r.text }}</span></li>{% endfor %}
+        </ul>
+      </div>
       {% endif %}
     </div>
-    <div>
+    <div class="stack stack-title">
       <h3>How the score is built</h3>
       <div class="score-buildup" role="img" aria-label="Score {{ "%.0f"|format(latest.score) }} of 100, built from {{ components|length }} components">
         {% for c in components %}<span class="score-buildup-segment {{ c.width_class }}" title="{{ c.label }}: {{ "%.0f"|format(c.points) }} of {{ "%.0f"|format(c.weight) }} points"></span>{% endfor %}
@@ -92,7 +96,8 @@
   {{ stat("Updated", latest.created_at|ago(now)) }}
 </div>
 
-<section class="stack stack-title" id="score-history-section">
+<section id="score-history-section">
+<div class="stack stack-title">
   <h2>Score history</h2>
   {% if history_count >= 2 %}
   <div id="score-history-chart" class="chart-box chart-score-history" role="img" aria-label="Score history over {{ history_count }} snapshots, latest {{ "%.0f"|format(latest.score) }} ({{ latest.verdict|capitalize }})"></div>
@@ -101,9 +106,11 @@
   {% else %}
   <p class="empty">Score history appears after the next re-check.</p>
   {% endif %}
+</div>
 </section>
 
-<section class="stack stack-title" id="bundle-section">
+<section id="bundle-section">
+<div class="stack stack-title">
   <h2>Bundle</h2>
   {% if clusters %}
   <p>
@@ -139,9 +146,11 @@
   {% else %}
   <p class="empty">No bundle detected among the earliest buyers.</p>
   {% endif %}
+</div>
 </section>
 
-<section class="stack stack-title" id="smart-money-section">
+<section id="smart-money-section">
+<div class="stack stack-title">
   <h2>Smart money</h2>
   <div class="stat-row">
     {{ stat("Weighted score", "%.1f"|format(smart.weighted_score)) }}
@@ -154,7 +163,7 @@
   {% set wallet_count = smart.wallets|length %}
   {% set buysell_h = "chart-h-lg" if wallet_count > 15 else ("chart-h-md" if wallet_count > 5 else "chart-h-sm") %}
   <div class="grid smart-money-charts">
-    <div class="panel tier-donut-panel">
+    <div class="panel tier-donut-panel stack stack-title">
       <h3>Bought by tier</h3>
       <div id="tier-donut-chart" class="chart-tier-donut" role="img" aria-label="USD bought by tier: {% for row in tier_donut_json %}{{ row.tier }} {{ row.usd|money }}{% if not loop.last %}, {% endif %}{% endfor %}"></div>
       <script type="application/json" id="chart-tier-donut">{{ tier_donut_json|tojson }}</script>
@@ -168,7 +177,7 @@
         <button type="button" id="tier-filter-clear" aria-label="Clear tier filter">{{ icon_x("icon") }}</button>
       </p>
     </div>
-    <div class="panel buysell-panel">
+    <div class="panel buysell-panel stack stack-title">
       <h3>Buy vs sell per wallet</h3>
       <div id="buysell-chart" class="{{ buysell_h }}" role="img" aria-label="Buy and sell amounts per smart money wallet; see the table below for exact figures."></div>
       <script type="application/json" id="chart-buysell">{{ buy_sell_json|tojson }}</script>
@@ -193,6 +202,7 @@
   {% else %}
   <p class="empty">No smart money buyers seen.</p>
   {% endif %}
+</div>
 </section>
 
 </div>

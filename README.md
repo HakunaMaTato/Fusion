@@ -22,6 +22,8 @@ make worker      # polling worker (writes the SQLite database the web app reads)
 make soak        # ten real minutes of the worker against a scripted Nansen (slow)
 ```
 
+UI screenshots and an axe-core accessibility pass (`tests/ui/`) are separate, since they need a downloaded Chromium: `pip install -e .[ui] && playwright install chromium && make ui-test`.
+
 Deploy (GCP VM, Docker, HTTPS, login, backups): `docs/deploy.md`.
 
 Dashboard: `/` (tokens), `/token/{chain}/{address}`, `/status`; see `docs/dashboard.md` (demo data: `python scripts/seed_demo.py <db-url>`).

@@ -116,10 +116,15 @@
 
 /* --- 5.4 Table --- */
 
+/* §5.4: sentence case, 13px, 500 weight -- overrides app.css's pre-redesign `thead th` (issue 7:
+   the old ALL-CAPS headers), which still applies to the plain-table pages this class doesn't. */
 table.tokens thead th {
   position: sticky;
   top: 0;
   z-index: 1;
+  text-transform: none;
+  font-size: var(--text-label-size);
+  font-weight: var(--weight-medium);
 }
 
 .sort-link {
@@ -138,7 +143,10 @@ table.tokens tbody tr:hover { background: var(--surface-raised); }
 
 .token-cell { display: flex; align-items: center; gap: var(--s-3); }
 .token-cell-text { display: flex; flex-direction: column; gap: var(--s-1); }
-.token-address { color: var(--text-faint); font-size: 0.75rem; }
+/* §5.4 names --text-faint for this, but that's only 3.05:1 against the row background -- below
+   WCAG AA's 4.5:1 for normal text (found by the axe-core pass in tests/ui). --text-muted is the
+   next tone up and is what the rest of the app already uses for de-emphasised-but-real text. */
+.token-address { color: var(--text-muted); font-size: 0.75rem; }
 
 .cell-with-meter { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-1); }
 .cell-with-meter .meter { width: 40px; }

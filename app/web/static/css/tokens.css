@@ -24,7 +24,10 @@
      Written as plain rgba() (not CSS Color 5's relative rgb(from ...)) for broad browser support. */
   --green-tint: rgba(63, 212, 154, 0.14); /* --green #3fd49a */
   --watch-tint: rgba(242, 181, 74, 0.14); /* --watch #f2b54a */
-  --avoid-tint: rgba(240, 93, 99, 0.14); /* --avoid #f05d63 */
+  /* 0.08, not the same 0.14 as the other two tints: --avoid text on the naive 0.14 tint measured
+     4.33:1 against WCAG AA's 4.5:1 minimum (found by the axe-core pass in tests/ui); 0.08 clears
+     it with a small margin. green/watch don't have this problem (6.6:1 / 6.9:1 at 0.14). */
+  --avoid-tint: rgba(240, 93, 99, 0.08); /* --avoid #f05d63 */
 
   --series-smart: #9b8cfa;
   --series-bundle: #f0789a;
