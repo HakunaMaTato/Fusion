@@ -375,12 +375,43 @@ def test_pages_use_no_inline_styles_or_scripts(client: TestClient) -> None:
         assert body.count("<script") == 1, path  # only the vendored htmx
 
 
-def test_the_stylesheet_has_a_phone_breakpoint_and_dark_mode(client: TestClient) -> None:
+def test_the_stylesheet_has_a_phone_breakpoint(client: TestClient) -> None:
     css = client.get("/static/app.css").text
 
     assert "@media (max-width: 640px)" in css
-    assert "prefers-color-scheme: dark" in css
     assert "overflow-x" not in css or "hidden" not in css.split("overflow-x")[1][:12]
+
+
+def test_dark_is_the_only_theme_for_now(client: TestClient) -> None:
+    """UI_REDESIGN.md §3.1: dark is the default (and, until UI-6, only) theme, not conditional on
+    the visitor's OS preference."""
+    body = client.get("/").text
+    tokens_css = client.get("/static/css/tokens.css").text
+
+    assert '<meta name="color-scheme" content="dark">' in body
+    assert "color-scheme: dark" in tokens_css
+    assert "prefers-color-scheme" not in tokens_css
+    assert "prefers-color-scheme" not in client.get("/static/app.css").text
+
+
+def test_the_new_stylesheets_and_fonts_are_linked_and_served(client: TestClient) -> None:
+    body = client.get("/").text
+    for href in (
+        "/static/css/tokens.css",
+        "/static/css/type.css",
+        "/static/css/layout.css",
+    ):
+        assert f'href="{href}"' in body, href
+        assert client.get(href).status_code == 200, href
+    for path in (
+        "/static/fonts/ibm-plex-sans-400.woff2",
+        "/static/fonts/ibm-plex-sans-500.woff2",
+        "/static/fonts/ibm-plex-sans-600.woff2",
+        "/static/fonts/ibm-plex-mono-400.woff2",
+    ):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        assert response.content[:4] == b"wOF2", path  # a real woff2 file, not a placeholder
 
 
 def test_the_vendored_htmx_is_the_pinned_release(client: TestClient) -> None:

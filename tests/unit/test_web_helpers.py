@@ -10,8 +10,10 @@ from app.web.format import (
     cluster_reason,
     component_label,
     money,
+    pct,
     percent,
     short_address,
+    usd,
 )
 from app.web.links import is_valid_address, token_explorer_url, wallet_explorer_url
 
@@ -126,6 +128,24 @@ def test_money() -> None:
     assert money(2_400_000) == "$2.40M"
     assert money(3.2e9) == "$3.20B"
     assert money(-9000) == "-$9.0K"
+
+
+def test_usd_matches_money() -> None:
+    """usd() is the §4 name for the same helper as money(); later phases migrate call sites."""
+    assert usd is money
+    assert usd(1_330_000) == "$1.33M"
+    assert usd(931_500) == "$931.5K"
+
+
+def test_pct() -> None:
+    """§4: one decimal, "<0.1%" for a small non-zero value, "0%" only for a true zero (issue 13)."""
+    assert pct(None) == "n/a"
+    assert pct(0) == "0%"
+    assert pct(0.4) == "0.4%"
+    assert pct(38.04) == "38.0%"
+    assert pct(0.04) == "<0.1%"
+    assert pct(-0.04) == "-<0.1%"
+    assert pct(-38.04) == "-38.0%"
 
 
 def test_percent_and_age() -> None:

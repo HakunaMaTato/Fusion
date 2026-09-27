@@ -1,0 +1,51 @@
+/* Layout primitives: UI_REDESIGN.md §3.3 (vertical rhythm) and §3.4 (grid). Later phases build
+   pages out of these instead of one-off margins, which is what caused the uneven spacing in the
+   old UI (issue 2). */
+
+/* --- 3.4 Content container --- */
+.container {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
+  padding-inline: var(--side-padding);
+}
+
+@media (max-width: 767px) {
+  .container {
+    padding-inline: var(--side-padding-mobile);
+  }
+}
+
+/* 12-column grid with token gutters. Children place themselves with `grid-column`. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: var(--grid-gutter);
+}
+
+/* --- 3.3 Vertical rhythm ---
+   `.stack` puts space only BETWEEN children (never before the first or after the last), so
+   nesting stacks never doubles a gap. `--gap` defaults to the panel-to-panel spacing; the
+   modifiers below cover the other two named rhythms from the spec. Set `--gap` directly (inline
+   style or a one-off rule) for any other value on `--s-*`. */
+.stack {
+  --gap: var(--gap-panel);
+}
+
+.stack > * {
+  margin-block: 0;
+}
+
+.stack > * + * {
+  margin-top: var(--gap);
+}
+
+/* Between page sections. */
+.stack-sections {
+  --gap: var(--gap-section);
+}
+
+/* A section title immediately above its content. */
+.stack-title {
+  --gap: var(--gap-title-content);
+}

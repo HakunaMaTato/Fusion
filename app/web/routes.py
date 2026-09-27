@@ -32,6 +32,8 @@ templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 templates.env.filters.update(
     money=fmt.money,
     percent=fmt.percent,
+    usd=fmt.usd,
+    pct=fmt.pct,
     age=fmt.age,
     ago=fmt.age_since,
     short=fmt.short_address,
