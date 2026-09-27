@@ -10,6 +10,7 @@ from app.pipeline.scoring import (
     VETO_BUNDLE_SUPPLY,
     VETO_SM_IN_BUNDLE,
     VETO_SM_NET_SELLING,
+    Reason,
     ScoreInputs,
     score_token,
 )
@@ -17,6 +18,10 @@ from app.pipeline.smart_money import SmartMoneyMetrics
 from tests.factories import scoring_config
 
 CFG = scoring_config()
+
+
+def texts(reasons: list[Reason]) -> list[str]:
+    return [r.text for r in reasons]
 
 
 def smart(
@@ -82,7 +87,7 @@ def test_sm_holding_and_low_bundle_is_green() -> None:
     assert result.verdict == "GREEN"
     assert result.vetoes == []
     assert result.score == pytest.approx(83.25)
-    assert result.reasons[0] == "3 smart wallets (weighted 3.0), still holding 95%"
+    assert result.reasons[0].text == "3 smart wallets (weighted 3.0), still holding 95%"
 
 
 def test_sm_holding_and_high_bundle_is_avoid_by_veto() -> None:
@@ -90,7 +95,7 @@ def test_sm_holding_and_high_bundle_is_avoid_by_veto() -> None:
 
     assert result.verdict == "AVOID"
     assert result.vetoes == [VETO_BUNDLE_SUPPLY]
-    assert result.reasons[0] == "bundle of 14 wallets holds 38% of supply (veto above 30%)"
+    assert result.reasons[0].text == "bundle of 14 wallets holds 38% of supply (veto above 30%)"
 
 
 def test_sm_selling_and_high_bundle_is_avoid() -> None:
@@ -100,7 +105,7 @@ def test_sm_selling_and_high_bundle_is_avoid() -> None:
 
     assert result.verdict == "AVOID"
     assert result.vetoes == [VETO_BUNDLE_SUPPLY, VETO_SM_NET_SELLING]
-    assert "smart money net selling $8,000 in the last 24h" in result.reasons
+    assert "smart money net selling $8,000 in the last 24h" in texts(result.reasons)
 
 
 def test_no_sm_and_low_bundle_is_watch() -> None:
@@ -111,7 +116,7 @@ def test_no_sm_and_low_bundle_is_watch() -> None:
     assert result.verdict == "WATCH"
     assert result.vetoes == []
     assert result.score == pytest.approx(54.0)
-    assert "no smart money buyers" in result.reasons
+    assert "no smart money buyers" in texts(result.reasons)
 
 
 # --- vetoes on their own ---
@@ -144,7 +149,7 @@ def test_sm_in_bundle_veto_alone() -> None:
     result = score_token(inputs(overlap=frozenset({"sm0", "sm1"})), CFG)
 
     assert result.vetoes == [VETO_SM_IN_BUNDLE]
-    assert "2 smart wallet(s) are inside a bundle" in result.reasons
+    assert "2 smart wallet(s) are inside a bundle" in texts(result.reasons)
     assert result.verdict == "AVOID"
 
 
@@ -194,8 +199,8 @@ def test_missing_data_scores_zero_and_is_reported() -> None:
 
     assert result.components["volume_liquidity"] == 0.0
     assert result.components["holder_growth"] == 0.0
-    assert "volume or liquidity unavailable" in result.reasons
-    assert "holder count or token age unavailable" in result.reasons
+    assert "volume or liquidity unavailable" in texts(result.reasons)
+    assert "holder count or token age unavailable" in texts(result.reasons)
 
 
 def test_zero_liquidity_does_not_divide_by_zero() -> None:

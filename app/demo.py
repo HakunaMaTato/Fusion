@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.pipeline.analyze import TokenAnalysis
 from app.pipeline.bundle import BundleAnalysis, Cluster
 from app.pipeline.discovery import Candidate
-from app.pipeline.scoring import ScoreResult
+from app.pipeline.scoring import Reason, ScoreResult
 from app.pipeline.smart_money import SmartMoneyMetrics, SmartWalletSummary
 from app.storage import repo
 
@@ -36,6 +36,7 @@ def _analysis(
     score: float,
     verdict: str,
     reasons: list[str],
+    risk_reasons: list[str] | None = None,
     vetoes: list[str] | None = None,
     bundle_wallets: list[str] | None = None,
     bundle_supply: float = 0.0,
@@ -90,7 +91,8 @@ def _analysis(
             score=score,
             verdict=verdict,  # type: ignore[arg-type]
             vetoes=vetoes or [],
-            reasons=reasons,
+            reasons=[Reason(text=r, polarity="positive") for r in reasons]
+            + [Reason(text=r, polarity="risk") for r in (risk_reasons or [])],
             components={
                 "sm_participation": min(1.0, len(smart) / 5),
                 "sm_holding": 0.9 if smart and net_flow >= 0 else 0.1,
@@ -129,6 +131,8 @@ def _sm(chain: str, prefix: str, tiers: list[str], holding: list[bool]) -> list[
             bought_usd=4200.0 - i * 700,
             sold_usd=0.0 if h else 5200.0 - i * 700,
             still_holding=h,
+            current_tokens=3100.0 - i * 400 if h else 0.0,
+            current_value_usd=3800.0 - i * 600 if h else 0.0,
         )
         for i, (a, t, h) in enumerate(zip(addresses, tiers, holding, strict=True))
     ]
@@ -207,13 +211,14 @@ def seed_demo(session: Session, now: datetime) -> None:
                 now - timedelta(minutes=30 * (2 - i)),
                 score=score,
                 verdict=verdict,
-                reasons=(
+                reasons=[] if vetoes else ["2 smart wallets (weighted 2.4), still holding 90%"],
+                risk_reasons=(
                     [
                         "bundle of 14 wallets holds 38% of supply (veto above 30%)",
                         "smart money net selling $9,000 in the last 24h",
                     ]
                     if vetoes
-                    else ["2 smart wallets (weighted 2.4), still holding 90%"]
+                    else None
                 ),
                 vetoes=vetoes,
                 bundle_wallets=_wallets("bnb", "wa", 14),
@@ -240,7 +245,8 @@ def seed_demo(session: Session, now: datetime) -> None:
             now - timedelta(minutes=10),
             score=31,
             verdict="AVOID",
-            reasons=["no smart money buyers", "<script>alert('reason')</script>"],
+            reasons=["<script>alert('reason')</script>"],
+            risk_reasons=["no smart money buyers"],
         ),
     )
 

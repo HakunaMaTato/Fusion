@@ -4,98 +4,140 @@
 {% from "components/verdict.html" import verdict_pill %}
 {% from "components/address.html" import address_chip %}
 {% from "components/tier.html" import tier_badge %}
+{% from "components/meter.html" import meter %}
+{% from "components/stat.html" import stat %}
+{% from "components/empty.html" import empty_value %}
+{% from "components/icons.html" import icon_check_circle, icon_alert_triangle %}
 {% set active = "tokens" %}
 {% block title %}{{ token.symbol }} on {{ token.chain }} - LP Radar{% endblock %}
 {% block content %}
-<p class="crumbs"><a href="/">All tokens</a></p>
-<div class="title-row">
-  <h1>{{ token_avatar(token.token_address, token.symbol, token.chain) }} {{ token.symbol }} {{ chain_chip(token.chain) }}</h1>
-  {{ verdict_pill(latest.verdict, "lg") }}
-</div>
-<p>{{ address_chip(token.chain, token.token_address) }}</p>
-<p class="links">
-  {% if explorer_url %}<a href="{{ explorer_url }}" rel="noopener noreferrer" target="_blank">Block explorer</a>{% endif %}
-  <a href="{{ nansen_url }}" rel="noopener noreferrer" target="_blank">Nansen app</a>
-</p>
+<div class="stack stack-sections">
 
-<dl class="facts">
-  <div><dt>Score</dt><dd>{{ "%.0f"|format(latest.score) }} / 100</dd></div>
-  <div><dt>Age</dt><dd>{{ age_hours|age }}</dd></div>
-  <div><dt>Market cap</dt><dd>{{ latest.market_cap_usd|money }}</dd></div>
-  <div><dt>Bundle supply</dt><dd>{{ latest.bundle_supply_pct|percent }}</dd></div>
-  <div><dt>Smart wallets</dt><dd>{{ smart.wallet_count }}</dd></div>
-  <div><dt>Updated</dt><dd>{{ latest.created_at|ago(now) }}</dd></div>
-</dl>
-
-<section>
-  <h2>Why this verdict</h2>
+<div class="stack">
+  <p class="crumbs"><a href="/">All tokens</a></p>
+  <div class="title-row">
+    <h1>{{ token_avatar(token.token_address, token.symbol, token.chain) }} {{ token.symbol }} {{ chain_chip(token.chain) }} {{ address_chip(token.chain, token.token_address) }}</h1>
+    {{ verdict_pill(latest.verdict, "lg") }}
+  </div>
+  <p class="links">
+    {% if explorer_url %}<a href="{{ explorer_url }}" rel="noopener noreferrer" target="_blank">Block explorer</a>{% endif %}
+    <a href="{{ nansen_url }}" rel="noopener noreferrer" target="_blank">Nansen app</a>
+  </p>
   {% if latest.vetoes %}
-  <p class="veto">Vetoed: {{ latest.vetoes|join(", ")|replace("_", " ") }}</p>
+  <p class="veto-banner">Vetoed: {{ latest.vetoes|join(", ")|replace("_", " ") }}</p>
   {% endif %}
-  <ul class="reasons">
-    {% for reason in latest.reasons %}<li>{{ reason }}</li>{% endfor %}
-  </ul>
-  <h3>Score components</h3>
-  <table class="plain">
-    <tbody>
-      {% for name, value in latest.components.items() %}
-      <tr>
-        <th scope="row">{{ name|component }}</th>
-        <td><progress max="100" value="{{ (value * 100)|round|int }}">{{ (value * 100)|round|int }}%</progress></td>
-        <td class="num">{{ (value * 100)|round|int }}%</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
+</div>
 
-<section>
+<div class="grid detail-hero">
+  <div class="panel ring-panel">
+    <p class="ring-score">{{ "%.0f"|format(latest.score) }}</p>
+    <p class="ring-verdict ring-verdict-{{ latest.verdict|lower }}">{{ latest.verdict|capitalize }}</p>
+    <p class="muted ring-note">Supply ring arrives in UI-5.</p>
+  </div>
+  <div class="panel why-panel stack">
+    <div>
+      <h2>Why this verdict</h2>
+      {% if strengths %}
+      <h3 class="reason-heading">Strengths</h3>
+      <ul class="reason-list reason-list-positive">
+        {% for r in strengths %}<li>{{ icon_check_circle("icon reason-icon") }}<span>{{ r.text }}</span></li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if risks %}
+      <h3 class="reason-heading">Risks</h3>
+      <ul class="reason-list reason-list-risk">
+        {% for r in risks %}<li>{{ icon_alert_triangle("icon reason-icon") }}<span>{{ r.text }}</span></li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    <div>
+      <h3>How the score is built</h3>
+      <div class="score-buildup" role="img" aria-label="Score {{ "%.0f"|format(latest.score) }} of 100, built from {{ components|length }} components">
+        {% for c in components %}<span class="score-buildup-segment {{ c.width_class }}" title="{{ c.label }}: {{ "%.0f"|format(c.points) }} of {{ "%.0f"|format(c.weight) }} points"></span>{% endfor %}
+      </div>
+      <div class="component-rows">
+        {% for c in components %}
+        <div class="component-row"{% if c.tooltip %} title="{{ c.tooltip }}"{% endif %}>
+          <span class="component-label">{{ c.label }}</span>
+          {{ meter((c.value * 100)|round|int) }}
+          <span class="component-points num">{{ "%.0f"|format(c.points) }} / {{ "%.0f"|format(c.weight) }} pts</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stat-row">
+  {{ stat("Age", age_hours|age) }}
+  {{ stat("Market cap", latest.market_cap_usd|money) }}
+  {{ stat("Liquidity", latest.liquidity_usd|money) }}
+  {{ stat("Vol / liq", vol_liq_ratio|ratio) }}
+  {{ stat("Holders / h", ("%.0f"|format(holders_per_hour)) if holders_per_hour is not none else empty_value("Not available from Nansen yet")) }}
+  {{ stat("Updated", latest.created_at|ago(now)) }}
+</div>
+
+<section class="stack stack-title">
   <h2>Score history</h2>
   {% if chart %}
   <div class="chart-box">{{ chart }}</div>
   <p class="muted">{{ history_count }} snapshot{{ "s" if history_count != 1 }}.</p>
   {% else %}
-  <p class="empty">No history yet.</p>
+  <p class="empty">Score history appears after the next re-check.</p>
   {% endif %}
 </section>
 
-<section>
+<section class="stack stack-title">
   <h2>Bundle</h2>
-  <p>Status: <strong>{{ latest.bundle_status }}</strong>. The clustered wallets hold {{ latest.bundle_supply_pct|percent }} of supply.</p>
   {% if clusters %}
+  <p>
+    {{ bundle_wallet_count }} wallet{{ "s" if bundle_wallet_count != 1 }} in {{ clusters|length }} cluster{{ "s" if clusters|length != 1 }}. They held {{ bundle_peak_supply_pct|percent }} of supply at peak and hold {{ latest.bundle_supply_pct|percent }} now. Status: {{ latest.bundle_status }}.
+  </p>
   {% for cluster in clusters %}
-  <article class="cluster">
-    <h3>Cluster of {{ cluster.wallets|length }} wallets</h3>
-    <p class="muted">
-      {% for reason in cluster.reasons %}<span class="tag">{{ reason|cluster_reason }}</span>{% endfor %}
-      {% if cluster.similar_size %}<span class="tag">{{ "similar_size"|cluster_reason }}</span>{% endif %}
-    </p>
-    {% if cluster.funders %}
-    <p class="muted">Funder: {% for f in cluster.funders %}{{ address_chip(token.chain, f) }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
-    {% endif %}
-    <p class="wallets">
-      {% for w in cluster.wallets %}{{ address_chip(token.chain, w) }}{% endfor %}
-    </p>
-  </article>
+  <details class="panel cluster">
+    <summary class="cluster-summary">
+      <span class="cluster-summary-title">Cluster of {{ cluster.wallets|length }} wallets</span>
+      <span class="cluster-tags">
+        {% for reason in cluster.reasons %}<span class="tag">{{ reason|cluster_reason }}</span>{% endfor %}
+        {% if cluster.similar_size %}<span class="tag">{{ "similar_size"|cluster_reason }}</span>{% endif %}
+      </span>
+    </summary>
+    <div class="cluster-body stack">
+      {% if cluster.funders %}
+      <p class="muted">Funder: {% for f in cluster.funders %}{{ address_chip(token.chain, f) }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+      <div class="wallets">
+        {% for w in cluster.wallets[:12] %}{{ address_chip(token.chain, w) }}{% endfor %}
+      </div>
+      {% if cluster.wallets|length > 12 %}
+      <details class="cluster-more">
+        <summary>Show all {{ cluster.wallets|length }}</summary>
+        <div class="wallets">
+          {% for w in cluster.wallets[12:] %}{{ address_chip(token.chain, w) }}{% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </div>
+  </details>
   {% endfor %}
   {% else %}
   <p class="empty">No bundle detected among the earliest buyers.</p>
   {% endif %}
 </section>
 
-<section>
+<section class="stack stack-title">
   <h2>Smart money</h2>
-  <dl class="facts">
-    <div><dt>Weighted score</dt><dd>{{ "%.1f"|format(smart.weighted_score) }}</dd></div>
-    <div><dt>24h net flow</dt><dd>{{ smart.net_flow_usd|money }}</dd></div>
-    <div><dt>Still holding</dt><dd>{% if smart.holding_ratio is none %}n/a{% else %}{{ "%.0f"|format(smart.holding_ratio * 100) }}%{% endif %}</dd></div>
-    <div><dt>First entry</dt><dd>{% if smart.minutes_after_launch is none %}n/a{% else %}{{ "%.0f"|format(smart.minutes_after_launch) }} min after launch{% endif %}</dd></div>
-    <div><dt>Market cap at entry</dt><dd>{{ smart.market_cap_at_entry|money }}</dd></div>
-  </dl>
+  <div class="stat-row">
+    {{ stat("Weighted score", "%.1f"|format(smart.weighted_score)) }}
+    {{ stat("24h net flow", smart.net_flow_usd|money) }}
+    {{ stat("Still holding", (("%.0f"|format(smart.holding_ratio * 100)) ~ "%") if smart.holding_ratio is not none else empty_value("Not available from Nansen yet")) }}
+    {{ stat("First entry", (("%.0f"|format(smart.minutes_after_launch)) ~ " min after launch") if smart.minutes_after_launch is not none else empty_value("Not available from Nansen yet")) }}
+    {{ stat("Market cap at entry", smart.market_cap_at_entry|money if smart.market_cap_at_entry is not none else empty_value("Not available from Nansen yet")) }}
+  </div>
   {% if smart.wallets %}
   <table class="tokens wallets-table">
     <thead>
-      <tr><th scope="col">Wallet</th><th scope="col">Tier</th><th scope="col" class="num">Bought</th><th scope="col" class="num">Sold</th><th scope="col">Holding</th></tr>
+      <tr><th scope="col">Wallet</th><th scope="col">Tier</th><th scope="col" class="num">Bought</th><th scope="col" class="num">Sold</th><th scope="col">Balance</th></tr>
     </thead>
     <tbody>
       {% for w in smart.wallets %}
@@ -104,7 +146,7 @@
         <td data-label="Tier">{{ tier_badge(w.tier) }}</td>
         <td data-label="Bought" class="num">{{ w.bought_usd|money }}</td>
         <td data-label="Sold" class="num">{{ w.sold_usd|money }}</td>
-        <td data-label="Holding">{{ "yes" if w.still_holding else "no" }}</td>
+        <td data-label="Balance">{{ w.current_tokens|qty }} tok ({{ w.current_value_usd|money if w.current_value_usd is not none else empty_value("Not available from Nansen yet") }})</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -113,4 +155,6 @@
   <p class="empty">No smart money buyers seen.</p>
   {% endif %}
 </section>
+
+</div>
 {% endblock %}

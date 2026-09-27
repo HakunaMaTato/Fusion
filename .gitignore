@@ -24,3 +24,4 @@ htmlcov/
 *.swp
 .demo/
 backtest/cache/
+.ui-preview/

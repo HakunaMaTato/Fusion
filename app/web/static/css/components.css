@@ -213,3 +213,18 @@
   color: var(--text-faint);
   cursor: help;
 }
+
+/* --- Panel (§6.1: "Panels are used only for the two top blocks and the cluster list") --- */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  padding: var(--panel-padding);
+}
+
+@media (max-width: 767px) {
+  .panel {
+    padding: var(--panel-padding-mobile);
+  }
+}

@@ -34,6 +34,11 @@ class SmartWalletSummary(BaseModel):
     bought_usd: float
     sold_usd: float
     still_holding: bool
+    # UI_REDESIGN.md §7 item 4: a real balance instead of a yes/no (issue 14). Free of any extra
+    # API call: `current_tokens` is buys minus sells, already tracked for `still_holding`, and
+    # `current_value_usd` uses the latest trade's own implied price -- no separate price fetch.
+    current_tokens: float = 0.0
+    current_value_usd: float | None = None
 
 
 class SmartMoneyMetrics(BaseModel):
@@ -116,6 +121,14 @@ def compute_smart_money_metrics(
         if flow_start <= moment <= now:
             net_flow += signed * trade.estimated_value_usd
 
+    # The most recent trade's own implied price, so "current" balances are valued without any
+    # extra API call. None if nothing traded (no trades, or every trade had a zero token amount).
+    current_price: float | None = None
+    for _, trade in reversed(dated):
+        if trade.token_amount > 0:
+            current_price = trade.estimated_value_usd / trade.token_amount
+            break
+
     label_counts: dict[str, int] = defaultdict(int)
     weighted_score = 0.0
     summaries: list[SmartWalletSummary] = []
@@ -124,6 +137,7 @@ def compute_smart_money_metrics(
         label, weight = wallet_label_and_weight(labels_by_wallet[wallet], cfg, tiers)
         label_counts[label] += 1
         weighted_score += weight
+        current_tokens = max(net_tokens[wallet], 0.0)
         summaries.append(
             SmartWalletSummary(
                 address=wallet,
@@ -131,6 +145,10 @@ def compute_smart_money_metrics(
                 bought_usd=bought_usd[wallet],
                 sold_usd=sold_usd[wallet],
                 still_holding=net_tokens[wallet] > 0,
+                current_tokens=current_tokens,
+                current_value_usd=(
+                    current_tokens * current_price if current_price is not None else None
+                ),
             )
         )
     summaries.sort(key=lambda w: (-w.bought_usd, w.address))

@@ -315,7 +315,7 @@ class Worker:
                     token_address=token.token_address,
                     verdict=snapshot.verdict,
                     detail=event.detail,
-                    reasons=analysis.score.reasons,
+                    reasons=[r.text for r in analysis.score.reasons],
                     dashboard_base_url=self._settings.dashboard_base_url,
                 )
                 try:
