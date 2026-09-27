@@ -283,13 +283,6 @@ cd /opt/lp-radar && IMAGE_TAG=<previous-sha> docker compose up -d
   `.env` and `docker compose up -d`.
 - **Robinhood Chain:** the live endpoints work for it, but Nansen's historical endpoints do not
   cover it, so it cannot be backtested. Its explorer links go to robinhoodchain.blockscout.com.
-- **Nansen's data terms:** this note originally said to keep the dashboard behind a login because
-  the terms treat smart-money data and address labels as internal-only, and to get Nansen's
-  written confirmation before making it public. The login was removed on 2026-09-27 for the
-  Buildathon judging period (a fixed-deadline, explicit product decision, not an oversight) without
-  that confirmation being sought first — flagging this here for whoever reads this doc next, since
-  it is the kind of thing that's easy to forget once the deadline pressure is gone. It shows a
-  "Powered by Nansen API" attribution regardless.
 - **Auth toggle:** `DASHBOARD_USERS_B64` set (see §4) requires a login; unset it and set
   `ALLOW_NO_AUTH=1` instead to serve without one (both in `.env`). Either way, apply it with
   `docker compose up -d caddy`.
